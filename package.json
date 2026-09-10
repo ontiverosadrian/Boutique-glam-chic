@@ -1,0 +1,27 @@
+{
+  "name": "glam-chic-backend",
+  "version": "1.0.0",
+  "description": "Servidor backend para la PWA de Boutique Glam Chic conectado a MongoDB Atlas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "keywords": [
+    "pwa",
+    "mongodb",
+    "nodejs",
+    "express"
+  ],
+  "author": "Adrián Ontiveros Franco",
+  "license": "MIT"
+}

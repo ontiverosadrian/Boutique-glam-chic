@@ -1,3 +1,4 @@
+// Base de datos local de productos del catálogo
 const products = [
     { id: 1, name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables, ideal para eventos formales." },
     { id: 2, name: "Bolso de Mano Elegante", category: "Accesorios", price: 549.00, image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=60", description: "Bolso compacto con detalles metálicos dorados y correa ajustable." },
@@ -9,6 +10,7 @@ const products = [
 
 let deferredPrompt = null;
 
+// Inicialización de LocalStorage
 function initializeLocalStorage() {
     if (!localStorage.getItem('glam_products')) {
         localStorage.setItem('glam_products', JSON.stringify(products));
@@ -31,6 +33,7 @@ function saveOrderToStorage(orderItems) {
     updateOrderBadge();
 }
 
+// Renderizado del Catálogo
 function renderCatalog(itemsToRender) {
     const grid = document.getElementById('product-grid');
     const noResults = document.getElementById('no-results');
@@ -68,6 +71,7 @@ function renderCatalog(itemsToRender) {
     });
 }
 
+// Gestión del Pedido
 window.addToOrder = function(productId) {
     const allProducts = getStoredProducts();
     const product = allProducts.find(p => p.id === productId);
@@ -191,7 +195,8 @@ function setupOrderModal() {
         }
     });
 
-    checkoutBtn.addEventListener('click', () => {
+    // Envío real al Backend conectado a MongoDB Atlas
+    checkoutBtn.addEventListener('click', async () => {
         const order = getSavedOrder();
         if (order.length === 0) {
             alert('Tu pedido está vacío.');
@@ -199,13 +204,32 @@ function setupOrderModal() {
         }
 
         if (navigator.onLine) {
-            alert('¡Conexión detectada! Pedido sincronizado exitosamente con la base de datos central de la Boutique Glam Chic.');
-            localStorage.removeItem('glam_saved_order');
-            updateOrderBadge();
-            renderOrderModalContent();
-            modal.classList.add('hidden');
+            try {
+                const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+                const response = await fetch('http://localhost:5000/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: order, total: total })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`¡Sincronizado con MongoDB con éxito! ID de orden: ${data.orderId}`);
+                    localStorage.removeItem('glam_saved_order');
+                    updateOrderBadge();
+                    renderOrderModalContent();
+                    modal.classList.add('hidden');
+                } else {
+                    alert('Hubo un problema al sincronizar con el servidor.');
+                }
+            } catch (error) {
+                console.error('Error de red al conectar con el servidor:', error);
+                alert('No se pudo conectar con el servidor central. El pedido se mantiene resguardado localmente.');
+            }
         } else {
-            alert('Estás sin conexión. El pedido se ha guardado de forma segura en el almacenamiento local y se sincronizará automáticamente en cuanto recuperes internet.');
+            alert('Estás sin conexión. El pedido se ha guardado de forma segura en el almacenamiento local y se enviará a MongoDB en cuanto recuperes internet.');
             modal.classList.add('hidden');
         }
     });
@@ -230,6 +254,7 @@ function setupOrderModal() {
     });
 }
 
+// Selector de Tema (Modo Oscuro / Claro)
 function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');

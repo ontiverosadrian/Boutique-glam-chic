@@ -1,4 +1,4 @@
-// Base de datos local de productos del catálogo (16 artículos en total)
+// Catálogo de productos (16 artículos)
 const products = [
     { id: 1, name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables, ideal para eventos formales." },
     { id: 2, name: "Bolso de Mano Elegante", category: "Accesorios", price: 549.00, image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=60", description: "Bolso compacto con detalles metálicos dorados y correa ajustable." },
@@ -19,15 +19,17 @@ const products = [
 ];
 
 let deferredPrompt = null;
+let isRegistering = false;
 
-// Inicialización de LocalStorage
-function initializeLocalStorage() {
+// Inicialización de LocalStorage y Sesión
+function initializeApp() {
     if (!localStorage.getItem('glam_products')) {
         localStorage.setItem('glam_products', JSON.stringify(products));
     }
     if (!localStorage.getItem('glam_saved_order')) {
         localStorage.setItem('glam_saved_order', JSON.stringify([]));
     }
+    checkUserSession();
 }
 
 function getStoredProducts() {
@@ -83,7 +85,7 @@ function renderCatalog(itemsToRender) {
     });
 }
 
-// Gestión del Pedido
+// Gestión del Pedido / Carrito
 window.addToOrder = function(productId) {
     const allProducts = getStoredProducts();
     const product = allProducts.find(p => p.id === productId);
@@ -187,6 +189,177 @@ function showToast(message) {
     }, 2500);
 }
 
+// --- SISTEMA DE SESIONES Y AUTENTICACIÓN ---
+
+function checkUserSession() {
+    const session = JSON.parse(localStorage.getItem('glam_user_session'));
+    const container = document.getElementById('auth-action-container');
+    const catalogView = document.getElementById('catalog-view');
+    const adminDashboard = document.getElementById('admin-dashboard');
+
+    if (!container) return;
+
+    if (session) {
+        container.innerHTML = `
+            <div class="flex items-center space-x-3">
+                <span class="text-xs font-semibold px-3 py-1.5 bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 rounded-xl">
+                    <i class="fas fa-user-circle mr-1"></i> ${session.name} (${session.role})
+                </span>
+                <button onclick="logoutUser()" class="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-red-100 hover:text-red-600 transition-colors" title="Cerrar Sesión">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        `;
+
+        if (session.role === 'admin') {
+            if (catalogView) catalogView.classList.add('hidden');
+            if (adminDashboard) adminDashboard.classList.remove('hidden');
+            loadAdminOrders();
+        } else {
+            if (catalogView) catalogView.classList.remove('hidden');
+            if (adminDashboard) adminDashboard.classList.add('hidden');
+        }
+    } else {
+        container.innerHTML = `
+            <button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors flex items-center space-x-2">
+                <i class="fas fa-user"></i> <span class="hidden sm:inline">Iniciar Sesión</span>
+            </button>
+        `;
+        document.getElementById('open-auth-btn').addEventListener('click', openAuthModal);
+        if (catalogView) catalogView.classList.remove('hidden');
+        if (adminDashboard) adminDashboard.classList.add('hidden');
+    }
+}
+
+function openAuthModal() {
+    document.getElementById('auth-modal').classList.remove('hidden');
+}
+
+function closeAuthModal() {
+    document.getElementById('auth-modal').classList.add('hidden');
+}
+
+window.toggleAuthMode = function() {
+    isRegistering = !isRegistering;
+    const title = document.getElementById('auth-modal-title');
+    const submitBtn = document.getElementById('auth-submit-btn');
+    const nameField = document.getElementById('name-field-container');
+    const toggleText = document.getElementById('auth-toggle-text');
+
+    if (isRegistering) {
+        title.textContent = 'Crear Cuenta';
+        submitBtn.textContent = 'Registrarse';
+        nameField.classList.remove('hidden');
+        toggleText.innerHTML = `¿Ya tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-pink-600 dark:text-pink-400 font-semibold hover:underline">Inicia Sesión</button>`;
+    } else {
+        title.textContent = 'Iniciar Sesión';
+        submitBtn.textContent = 'Entrar';
+        nameField.classList.add('hidden');
+        toggleText.innerHTML = `¿No tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-pink-600 dark:text-pink-400 font-semibold hover:underline">Regístrate</button>`;
+    }
+}
+
+window.logoutUser = function() {
+    localStorage.removeItem('glam_user_session');
+    checkUserSession();
+    showToast('Sesión cerrada correctamente.');
+    window.location.reload();
+}
+
+function setupAuthForm() {
+    const form = document.getElementById('auth-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        const name = document.getElementById('auth-name').value;
+
+        const endpoint = isRegistering ? 'http://localhost:5000/api/auth/register' : 'http://localhost:5000/api/auth/login';
+        const payload = isRegistering ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' } : { email, password };
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                if (isRegistering) {
+                    alert('¡Registro exitoso! Ahora inicia sesión.');
+                    toggleAuthMode();
+                } else {
+                    localStorage.setItem('glam_user_session', JSON.stringify(data.user));
+                    closeAuthModal();
+                    checkUserSession();
+                    showToast(`¡Bienvenido, ${data.user.name}!`);
+                }
+            } else {
+                alert(data.error || 'Ocurrió un error en la autenticación.');
+            }
+        } catch (err) {
+            console.error('Error de red:', err);
+            alert('No se pudo conectar con el servidor backend.');
+        }
+    });
+}
+
+// --- PANEL DE ADMINISTRADOR ---
+
+async function loadAdminOrders() {
+    const tableBody = document.getElementById('admin-orders-table');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando pedidos desde MongoDB...</td></tr>`;
+
+    try {
+        const response = await fetch('http://localhost:5000/api/admin/orders');
+        const orders = await response.json();
+
+        if (response.ok) {
+            if (orders.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">No hay pedidos registrados en la base de datos todavía.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            orders.forEach(order => {
+                const itemsSummary = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+                const date = new Date(order.createdAt).toLocaleString();
+                
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-4 font-mono text-xs text-pink-600 dark:text-pink-400">${order._id}</td>
+                    <td class="p-4">
+                        <p class="font-semibold text-gray-800 dark:text-gray-200">${order.clientName || 'Cliente'}</p>
+                        <p class="text-xs text-gray-500">${order.clientEmail}</p>
+                    </td>
+                    <td class="p-4 text-xs text-gray-600 dark:text-gray-300 max-w-xs truncate" title="${itemsSummary}">${itemsSummary}</td>
+                    <td class="p-4 font-bold text-gray-900 dark:text-white">$${order.total.toFixed(2)}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                            ${order.status}
+                        </span>
+                    </td>
+                    <td class="p-4 text-xs text-gray-500">${date}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        } else {
+            tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-400">Error al obtener los pedidos del servidor.</td></tr>`;
+        }
+    } catch (err) {
+        console.error('Error al conectar con el panel admin:', err);
+        tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-400">Sin conexión con el servidor central.</td></tr>`;
+    }
+}
+
+// --- CONFIGURACIÓN DE INTERFAZ Y MODALES ---
+
 function setupOrderModal() {
     const modal = document.getElementById('order-modal');
     const openBtn = document.getElementById('open-order-btn');
@@ -208,46 +381,56 @@ function setupOrderModal() {
     }
 
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.add('hidden');
-        }
+        if (e.target === modal) modal.classList.add('hidden');
     });
 
     if (checkoutBtn) {
         checkoutBtn.addEventListener('click', async () => {
             const order = getSavedOrder();
+            const session = JSON.parse(localStorage.getItem('glam_user_session'));
+
             if (order.length === 0) {
                 alert('Tu pedido está vacío.');
+                return;
+            }
+
+            if (!session) {
+                alert('Debes iniciar sesión para sincronizar tu pedido con la base de datos.');
+                openAuthModal();
                 return;
             }
 
             if (navigator.onLine) {
                 try {
                     const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
                     const response = await fetch('http://localhost:5000/api/orders', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ items: order, total: total })
+                        body: JSON.stringify({
+                            clientEmail: session.email,
+                            clientName: session.name,
+                            items: order,
+                            total: total
+                        })
                     });
 
                     const data = await response.json();
 
                     if (response.ok) {
-                        alert(`¡Sincronizado con MongoDB (base de datos boquite) con éxito! ID de orden: ${data.orderId}`);
+                        alert(`¡Pedido guardado en MongoDB (base de datos boquite)! ID: ${data.orderId}`);
                         localStorage.removeItem('glam_saved_order');
                         updateOrderBadge();
                         renderOrderModalContent();
                         modal.classList.add('hidden');
                     } else {
-                        alert('Hubo un problema al sincronizar con el servidor.');
+                        alert('Error al sincronizar con el servidor.');
                     }
                 } catch (error) {
-                    console.error('Error de red al conectar con el servidor:', error);
-                    alert('No se pudo conectar con el servidor central. El pedido se mantiene resguardado localmente.');
+                    console.error('Error de red:', error);
+                    alert('No se pudo conectar con el servidor. El pedido se mantiene local.');
                 }
             } else {
-                alert('Estás sin conexión. El pedido se ha guardado de forma segura en el almacenamiento local y se enviará en cuanto recuperes internet.');
+                alert('Estás offline. El pedido se guardó localmente.');
                 modal.classList.add('hidden');
             }
         });
@@ -257,7 +440,7 @@ function setupOrderModal() {
         whatsappBtn.addEventListener('click', () => {
             const order = getSavedOrder();
             if (order.length === 0) {
-                alert('Tu pedido está vacío para compartir.');
+                alert('Tu pedido está vacío.');
                 return;
             }
 
@@ -269,13 +452,11 @@ function setupOrderModal() {
             });
             message += `\n*Total Estimado: $${total.toFixed(2)}*`;
 
-            const encodedMessage = encodeURIComponent(message);
-            window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
         });
     }
 }
 
-// Selector de Tema (Modo Oscuro / Claro) con forzado de estilos en tiempo real
 function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
@@ -286,26 +467,20 @@ function setupThemeToggle() {
     const applyTheme = (isDark) => {
         if (isDark) {
             htmlElement.classList.add('dark');
-            htmlElement.style.backgroundColor = '#111827';
-            htmlElement.style.color = '#f3f4f6';
             themeIcon.className = 'fas fa-sun text-yellow-400';
             localStorage.setItem('glam_theme', 'dark');
         } else {
             htmlElement.classList.remove('dark');
-            htmlElement.style.backgroundColor = '#fdf2f8';
-            htmlElement.style.color = '#1f2937';
             themeIcon.className = 'fas fa-moon text-gray-700';
             localStorage.setItem('glam_theme', 'light');
         }
     };
 
-    // Verificar preferencia guardada al iniciar
     const savedTheme = localStorage.getItem('glam_theme') || 'light';
     applyTheme(savedTheme === 'dark');
 
     toggleBtn.addEventListener('click', () => {
-        const isCurrentlyDark = htmlElement.classList.contains('dark');
-        applyTheme(!isCurrentlyDark);
+        applyTheme(!htmlElement.classList.contains('dark'));
     });
 }
 
@@ -391,32 +566,27 @@ function showInstallButton() {
 
 function hideInstallButton() {
     const installBtn = document.getElementById('install-btn');
-    if (installBtn) {
-        installBtn.classList.add('hidden');
-    }
+    if (installBtn) installBtn.classList.add('hidden');
 }
 
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/Boutique-glam-chic/sw.js')
-                .then(registration => {
-                    console.log('Service Worker registrado con éxito:', registration.scope);
-                })
-                .catch(error => {
-                    console.log('Fallo al registrar el Service Worker:', error);
-                });
+                .then(reg => console.log('SW registrado:', reg.scope))
+                .catch(err => console.log('Error SW:', err));
         });
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initializeLocalStorage();
+    initializeApp();
     renderCatalog(getStoredProducts());
     setupFilters();
     updateOrderBadge();
     setupOrderModal();
     setupThemeToggle();
+    setupAuthForm();
     monitorConnection();
     setupInstallPrompt();
     registerServiceWorker();

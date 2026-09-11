@@ -213,7 +213,6 @@ function setupOrderModal() {
         }
     });
 
-    // Envío real al Backend conectado a la base de datos boquite en MongoDB Atlas
     if (checkoutBtn) {
         checkoutBtn.addEventListener('click', async () => {
             const order = getSavedOrder();
@@ -276,7 +275,7 @@ function setupOrderModal() {
     }
 }
 
-// Selector de Tema (Modo Oscuro / Claro)
+// Selector de Tema (Modo Oscuro / Claro) con forzado de estilos en tiempo real
 function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
@@ -284,25 +283,29 @@ function setupThemeToggle() {
 
     if (!toggleBtn || !themeIcon) return;
 
+    const applyTheme = (isDark) => {
+        if (isDark) {
+            htmlElement.classList.add('dark');
+            htmlElement.style.backgroundColor = '#111827';
+            htmlElement.style.color = '#f3f4f6';
+            themeIcon.className = 'fas fa-sun text-yellow-400';
+            localStorage.setItem('glam_theme', 'dark');
+        } else {
+            htmlElement.classList.remove('dark');
+            htmlElement.style.backgroundColor = '#fdf2f8';
+            htmlElement.style.color = '#1f2937';
+            themeIcon.className = 'fas fa-moon text-gray-700';
+            localStorage.setItem('glam_theme', 'light');
+        }
+    };
+
+    // Verificar preferencia guardada al iniciar
     const savedTheme = localStorage.getItem('glam_theme') || 'light';
-    if (savedTheme === 'dark') {
-        htmlElement.classList.add('dark');
-        themeIcon.className = 'fas fa-sun text-yellow-400';
-    } else {
-        htmlElement.classList.remove('dark');
-        themeIcon.className = 'fas fa-moon text-gray-700';
-    }
+    applyTheme(savedTheme === 'dark');
 
     toggleBtn.addEventListener('click', () => {
-        if (htmlElement.classList.contains('dark')) {
-            htmlElement.classList.remove('dark');
-            localStorage.setItem('glam_theme', 'light');
-            themeIcon.className = 'fas fa-moon text-gray-700';
-        } else {
-            htmlElement.classList.add('dark');
-            localStorage.setItem('glam_theme', 'dark');
-            themeIcon.className = 'fas fa-sun text-yellow-400';
-        }
+        const isCurrentlyDark = htmlElement.classList.contains('dark');
+        applyTheme(!isCurrentlyDark);
     });
 }
 

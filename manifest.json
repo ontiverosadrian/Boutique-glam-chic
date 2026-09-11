@@ -1,7 +1,8 @@
 {
   "name": "Boutique Glam Chic - Catálogo Digital",
   "short_name": "Glam Chic",
-  "start_url": "/index.html",
+  "start_url": "/Boutique-glam-chic/index.html",
+  "scope": "/Boutique-glam-chic/",
   "display": "standalone",
   "background_color": "#fdf2f8",
   "theme_color": "#db2777",

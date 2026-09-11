@@ -37,6 +37,8 @@ function saveOrderToStorage(orderItems) {
 function renderCatalog(itemsToRender) {
     const grid = document.getElementById('product-grid');
     const noResults = document.getElementById('no-results');
+    if (!grid) return;
+    
     grid.innerHTML = '';
 
     if (itemsToRender.length === 0) {
@@ -101,6 +103,7 @@ function updateOrderBadge() {
     const currentOrder = getSavedOrder();
     const totalItems = currentOrder.reduce((sum, item) => sum + item.quantity, 0);
     const badge = document.getElementById('order-badge');
+    if (!badge) return;
 
     if (totalItems > 0) {
         badge.textContent = totalItems;
@@ -113,8 +116,9 @@ function updateOrderBadge() {
 function renderOrderModalContent() {
     const listContainer = document.getElementById('order-items-list');
     const totalContainer = document.getElementById('order-total');
+    if (!listContainer || !totalContainer) return;
+
     const currentOrder = getSavedOrder();
-    
     listContainer.innerHTML = '';
 
     if (currentOrder.length === 0) {
@@ -180,14 +184,18 @@ function setupOrderModal() {
     const checkoutBtn = document.getElementById('checkout-btn');
     const whatsappBtn = document.getElementById('whatsapp-btn');
 
+    if (!modal || !openBtn) return;
+
     openBtn.addEventListener('click', () => {
         renderOrderModalContent();
         modal.classList.remove('hidden');
     });
 
-    closeBtn.addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+    }
 
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
@@ -196,88 +204,95 @@ function setupOrderModal() {
     });
 
     // Envío real al Backend conectado a MongoDB Atlas
-    checkoutBtn.addEventListener('click', async () => {
-        const order = getSavedOrder();
-        if (order.length === 0) {
-            alert('Tu pedido está vacío.');
-            return;
-        }
-
-        if (navigator.onLine) {
-            try {
-                const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-                const response = await fetch('http://localhost:5000/api/orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: order, total: total })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    alert(`¡Sincronizado con MongoDB con éxito! ID de orden: ${data.orderId}`);
-                    localStorage.removeItem('glam_saved_order');
-                    updateOrderBadge();
-                    renderOrderModalContent();
-                    modal.classList.add('hidden');
-                } else {
-                    alert('Hubo un problema al sincronizar con el servidor.');
-                }
-            } catch (error) {
-                console.error('Error de red al conectar con el servidor:', error);
-                alert('No se pudo conectar con el servidor central. El pedido se mantiene resguardado localmente.');
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', async () => {
+            const order = getSavedOrder();
+            if (order.length === 0) {
+                alert('Tu pedido está vacío.');
+                return;
             }
-        } else {
-            alert('Estás sin conexión. El pedido se ha guardado de forma segura en el almacenamiento local y se enviará a MongoDB en cuanto recuperes internet.');
-            modal.classList.add('hidden');
-        }
-    });
 
-    whatsappBtn.addEventListener('click', () => {
-        const order = getSavedOrder();
-        if (order.length === 0) {
-            alert('Tu pedido está vacío para compartir.');
-            return;
-        }
+            if (navigator.onLine) {
+                try {
+                    const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-        let message = "Hola, me gustaría solicitar los siguientes artículos de Boutique Glam Chic:\n\n";
-        let total = 0;
-        order.forEach(item => {
-            message += `- ${item.quantity}x ${item.name} ($${(item.price * item.quantity).toFixed(2)})\n`;
-            total += item.price * item.quantity;
+                    const response = await fetch('http://localhost:5000/api/orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items: order, total: total })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        alert(`¡Sincronizado con MongoDB con éxito! ID de orden: ${data.orderId}`);
+                        localStorage.removeItem('glam_saved_order');
+                        updateOrderBadge();
+                        renderOrderModalContent();
+                        modal.classList.add('hidden');
+                    } else {
+                        alert('Hubo un problema al sincronizar con el servidor.');
+                    }
+                } catch (error) {
+                    console.error('Error de red al conectar con el servidor:', error);
+                    alert('No se pudo conectar con el servidor central. El pedido se mantiene resguardado localmente.');
+                }
+            } else {
+                alert('Estás sin conexión. El pedido se ha guardado de forma segura en el almacenamiento local y se enviará a MongoDB en cuanto recuperes internet.');
+                modal.classList.add('hidden');
+            }
         });
-        message += `\n*Total Estimado: $${total.toFixed(2)}*`;
+    }
 
-        const encodedMessage = encodeURIComponent(message);
-        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
-    });
+    if (whatsappBtn) {
+        whatsappBtn.addEventListener('click', () => {
+            const order = getSavedOrder();
+            if (order.length === 0) {
+                alert('Tu pedido está vacío para compartir.');
+                return;
+            }
+
+            let message = "Hola, me gustaría solicitar los siguientes artículos de Boutique Glam Chic:\n\n";
+            let total = 0;
+            order.forEach(item => {
+                message += `- ${item.quantity}x ${item.name} ($${(item.price * item.quantity).toFixed(2)})\n`;
+                total += item.price * item.quantity;
+            });
+            message += `\n*Total Estimado: $${total.toFixed(2)}*`;
+
+            const encodedMessage = encodeURIComponent(message);
+            window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+        });
+    }
 }
 
-// Selector de Tema (Modo Oscuro / Claro)
+// Selector de Tema Corregido y Optimizado
 function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
     const htmlElement = document.documentElement;
 
+    if (!toggleBtn || !themeIcon) return;
+
+    // Verificar preferencia guardada al iniciar
     const savedTheme = localStorage.getItem('glam_theme') || 'light';
     if (savedTheme === 'dark') {
-        htmlElement.classList.remove('light');
         htmlElement.classList.add('dark');
-        themeIcon.className = 'fas fa-sun';
+        themeIcon.className = 'fas fa-sun text-yellow-400';
+    } else {
+        htmlElement.classList.remove('dark');
+        themeIcon.className = 'fas fa-moon text-gray-700';
     }
 
     toggleBtn.addEventListener('click', () => {
         if (htmlElement.classList.contains('dark')) {
             htmlElement.classList.remove('dark');
-            htmlElement.classList.add('light');
             localStorage.setItem('glam_theme', 'light');
-            themeIcon.className = 'fas fa-moon';
+            themeIcon.className = 'fas fa-moon text-gray-700';
         } else {
-            htmlElement.classList.remove('light');
             htmlElement.classList.add('dark');
             localStorage.setItem('glam_theme', 'dark');
-            themeIcon.className = 'fas fa-sun';
+            themeIcon.className = 'fas fa-sun text-yellow-400';
         }
     });
 }
@@ -285,6 +300,7 @@ function setupThemeToggle() {
 function setupFilters() {
     const searchInput = document.getElementById('search-input');
     const categoryFilter = document.getElementById('category-filter');
+    if (!searchInput || !categoryFilter) return;
 
     const filterHandler = () => {
         const query = searchInput.value.toLowerCase();
@@ -306,6 +322,7 @@ function setupFilters() {
 
 function monitorConnection() {
     const banner = document.getElementById('offline-banner');
+    if (!banner) return;
     
     function updateStatus() {
         if (!navigator.onLine) {
@@ -370,7 +387,7 @@ function hideInstallButton() {
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
+            navigator.serviceWorker.register('/Boutique-glam-chic/sw.js')
                 .then(registration => {
                     console.log('Service Worker registrado con éxito:', registration.scope);
                 })

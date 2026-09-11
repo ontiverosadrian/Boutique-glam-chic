@@ -1,11 +1,21 @@
-// Base de datos local de productos del catálogo
+// Base de datos local de productos del catálogo (16 artículos en total)
 const products = [
     { id: 1, name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables, ideal para eventos formales." },
     { id: 2, name: "Bolso de Mano Elegante", category: "Accesorios", price: 549.00, image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=60", description: "Bolso compacto con detalles metálicos dorados y correa ajustable." },
     { id: 3, name: "Zapatos de Tacón Minimalistas", category: "Calzado", price: 799.00, image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500&auto=format&fit=crop&q=60", description: "Tacones cómodos de diseño clásico en tono nude para cualquier ocasión." },
     { id: 4, name: "Blusa Romántica con Encaje", category: "Vestidos", price: 420.00, image: "https://images.unsplash.com/photo-1564257577535-648b292e76f4?w=500&auto=format&fit=crop&q=60", description: "Blusa delicada de mangas largas con acabados en encaje fino." },
     { id: 5, name: "Gafas de Sol Glam", category: "Accesorios", price: 299.00, image: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=500&auto=format&fit=crop&q=60", description: "Gafas de sol con protección UV y armazón geométrico estilo retro." },
-    { id: 6, name: "Sandalias de Tiras Finas", category: "Calzado", price: 650.00, image: "https://images.unsplash.com/photo-1535043934128-cf0b28d52f95?w=500&auto=format&fit=crop&q=60", description: "Sandalias planas elegantes perfectas para un look fresco y casual." }
+    { id: 6, name: "Sandalias de Tiras Finas", category: "Calzado", price: 650.00, image: "https://images.unsplash.com/photo-1535043934128-cf0b28d52f95?w=500&auto=format&fit=crop&q=60", description: "Sandalias planas elegantes perfectas para un look fresco y casual." },
+    { id: 7, name: "Blazer Oversize Chic", category: "Vestidos", price: 980.00, image: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500&auto=format&fit=crop&q=60", description: "Blazer estructurado de corte moderno, perfecto para un look ejecutivo y sofisticado." },
+    { id: 8, name: "Collar Dije de Cristal", category: "Accesorios", price: 350.00, image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=500&auto=format&fit=crop&q=60", description: "Delicado collar de plata esterlina con circonita brillante en corte diamante." },
+    { id: 9, name: "Botines de Piel Estilo Chelsea", category: "Calzado", price: 1150.00, image: "https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=500&auto=format&fit=crop&q=60", description: "Botines de piel sintética premium con paneles elásticos laterales y tacón cómodo." },
+    { id: 10, name: "Vestido Largo de Gala", category: "Vestidos", price: 1450.00, image: "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=500&auto=format&fit=crop&q=60", description: "Impresionante vestido largo con abertura lateral y caída fluida de alta costura." },
+    { id: 11, name: "Sombrero de Paja Floppy", category: "Accesorios", price: 380.00, image: "https://images.unsplash.com/photo-1521369909029-2afed882baee?w=500&auto=format&fit=crop&q=60", description: "Sombrero elegante para exteriores con cinta decorativa en tono contrastante." },
+    { id: 12, name: "Mocasines Clásicos Dorados", category: "Calzado", price: 690.00, image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=500&auto=format&fit=crop&q=60", description: "Calzado plano de diseño atemporal con detalles metálicos frontales discretos." },
+    { id: 13, name: "Falda Plisada Metálica", category: "Vestidos", price: 590.00, image: "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=500&auto=format&fit=crop&q=60", description: "Falda midi con pliegues finos y acabado brillante sutil en tono bronce." },
+    { id: 14, name: "Reloj Minimalista Rose Gold", category: "Accesorios", price: 890.00, image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=500&auto=format&fit=crop&q=60", description: "Reloj de pulsera con extensible de malla milanesa y carátula limpia ultra delgada." },
+    { id: 15, name: "Zapatillas Deportivas Casuales", category: "Calzado", price: 850.00, image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=500&auto=format&fit=crop&q=60", description: "Tenis urbanos blancos de líneas limpias combinables con cualquier atuendo chic." },
+    { id: 16, name: "Cinturón Fino con Hebilla Dorada", category: "Accesorios", price: 250.00, image: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=500&auto=format&fit=crop&q=60", description: "Cinturón de piel sintética estrecho ideal para marcar la cintura con vestidos o abrigos." }
 ];
 
 let deferredPrompt = null;
@@ -42,10 +52,10 @@ function renderCatalog(itemsToRender) {
     grid.innerHTML = '';
 
     if (itemsToRender.length === 0) {
-        noResults.classList.remove('hidden');
+        if (noResults) noResults.classList.remove('hidden');
         return;
     } else {
-        noResults.classList.add('hidden');
+        if (noResults) noResults.classList.add('hidden');
     }
 
     itemsToRender.forEach(product => {
@@ -203,7 +213,7 @@ function setupOrderModal() {
         }
     });
 
-    // Envío real al Backend conectado a MongoDB Atlas
+    // Envío real al Backend conectado a la base de datos boquite en MongoDB Atlas
     if (checkoutBtn) {
         checkoutBtn.addEventListener('click', async () => {
             const order = getSavedOrder();
@@ -225,7 +235,7 @@ function setupOrderModal() {
                     const data = await response.json();
 
                     if (response.ok) {
-                        alert(`¡Sincronizado con MongoDB con éxito! ID de orden: ${data.orderId}`);
+                        alert(`¡Sincronizado con MongoDB (base de datos boquite) con éxito! ID de orden: ${data.orderId}`);
                         localStorage.removeItem('glam_saved_order');
                         updateOrderBadge();
                         renderOrderModalContent();
@@ -238,7 +248,7 @@ function setupOrderModal() {
                     alert('No se pudo conectar con el servidor central. El pedido se mantiene resguardado localmente.');
                 }
             } else {
-                alert('Estás sin conexión. El pedido se ha guardado de forma segura en el almacenamiento local y se enviará a MongoDB en cuanto recuperes internet.');
+                alert('Estás sin conexión. El pedido se ha guardado de forma segura en el almacenamiento local y se enviará en cuanto recuperes internet.');
                 modal.classList.add('hidden');
             }
         });
@@ -266,7 +276,7 @@ function setupOrderModal() {
     }
 }
 
-// Selector de Tema Corregido y Optimizado
+// Selector de Tema (Modo Oscuro / Claro)
 function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
@@ -274,7 +284,6 @@ function setupThemeToggle() {
 
     if (!toggleBtn || !themeIcon) return;
 
-    // Verificar preferencia guardada al iniciar
     const savedTheme = localStorage.getItem('glam_theme') || 'light';
     if (savedTheme === 'dark') {
         htmlElement.classList.add('dark');

@@ -10,8 +10,7 @@
     {
       "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%23db2777'/%3E%3Cpath d='M256 120L352 240H160L256 120Z' fill='white'/%3E%3Cpath d='M160 280H352V360H160V280Z' fill='white'/%3E%3C/svg%3E",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/svg+xml"
     }
   ]
 }

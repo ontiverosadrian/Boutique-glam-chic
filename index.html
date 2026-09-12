@@ -13,18 +13,25 @@
     </script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN para Gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) para Exportar a Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF y AutoTable para Exportar a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#db2777">
 </head>
 <body class="bg-pink-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
 
-    <!-- Banner de Estado Offline -->
+    <!-- Banner Offline -->
     <div id="offline-banner" class="hidden bg-amber-500 text-white text-center py-2 text-sm font-medium shadow-inner">
         <i class="fas fa-exclamation-triangle mr-1.5"></i> Estás sin conexión. Los cambios y pedidos se resguardarán localmente.
     </div>
 
-    <!-- Barra de Navegación -->
+    <!-- Navegación -->
     <header class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md sticky top-0 z-40 border-b border-pink-100 dark:border-gray-700 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <div class="flex items-center space-x-3">
@@ -34,21 +41,17 @@
                 <span class="font-extrabold text-xl tracking-tight text-pink-700 dark:text-pink-400">GLAM CHIC</span>
             </div>
 
-            <!-- Acciones de Usuario -->
             <div class="flex items-center space-x-3">
-                <!-- Botón de Modo Oscuro -->
                 <button id="theme-toggle" class="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                     <i id="theme-icon" class="fas fa-moon"></i>
                 </button>
 
-                <!-- Área de Autenticación / Sesión -->
                 <div id="auth-action-container">
                     <button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors flex items-center space-x-2">
                         <i class="fas fa-user"></i> <span class="hidden sm:inline">Iniciar Sesión</span>
                     </button>
                 </div>
 
-                <!-- Botón de Carrito / Pedido -->
                 <button id="open-order-btn" class="relative bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-2">
                     <i class="fas fa-shopping-bag"></i>
                     <span class="hidden sm:inline">Mi Pedido</span>
@@ -60,10 +63,8 @@
 
     <!-- Contenido Principal -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        <!-- Vista de Catálogo (Cliente / Visitante) -->
+        <!-- Catálogo y Perfil del Cliente -->
         <div id="catalog-view">
-            <!-- Sección de Encabezado y Filtros -->
             <div class="text-center max-w-2xl mx-auto mb-10">
                 <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white mb-3">Colección Exclusiva</h1>
                 <p class="text-gray-500 dark:text-gray-400 text-sm sm:text-base mb-6">Explora nuestra selección de moda y accesorios de alta calidad.</p>
@@ -82,32 +83,166 @@
                 </div>
             </div>
 
-            <!-- Cuadrícula de Productos -->
-            <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Se inyecta dinámicamente desde app.js -->
-            </div>
-
-            <!-- Sin resultados -->
-            <div id="no-results" class="hidden text-center py-16 text-gray-400">
-                <i class="fas fa-box-open text-5xl mb-3"></i>
-                <p class="text-lg">No encontramos artículos que coincidan con tu búsqueda.</p>
-            </div>
-        </div>
-
-        <!-- Vista del Panel de Administración (Oculta por defecto) -->
-        <div id="admin-dashboard" class="hidden">
-            <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                <div>
-                    <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">Panel de Administración</h1>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm">Supervisa todos los pedidos realizados en la base de datos de MongoDB.</p>
-                </div>
-                <button onclick="loadAdminOrders()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center justify-center space-x-2">
-                    <i class="fas fa-sync-alt"></i> <span>Actualizar Pedidos</span>
+            <!-- Botones de navegación para cliente autenticado -->
+            <div id="client-nav-tabs" class="hidden flex justify-center mb-8 space-x-2">
+                <button onclick="switchClientView('catalog')" id="tab-catalog-btn" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm transition-colors">
+                    <i class="fas fa-store mr-2"></i> Catálogo
+                </button>
+                <button onclick="switchClientView('history')" id="tab-history-btn" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 shadow-sm transition-colors">
+                    <i class="fas fa-history mr-2"></i> Mis Pedidos Realizados
                 </button>
             </div>
 
-            <!-- Tabla de Pedidos -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <!-- Vista de Catálogo -->
+            <div id="products-section">
+                <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+                <div id="no-results" class="hidden text-center py-16 text-gray-400">
+                    <i class="fas fa-box-open text-5xl mb-3"></i>
+                    <p class="text-lg">No encontramos artículos que coincidan con tu búsqueda.</p>
+                </div>
+            </div>
+
+            <!-- Vista de Historial de Pedidos del Cliente -->
+            <div id="client-history-section" class="hidden max-w-4xl mx-auto">
+                <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2 flex items-center">
+                        <i class="fas fa-clipboard-list text-pink-600 mr-3"></i> Historial de Compras
+                    </h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Revisa el estatus de los pedidos que has sincronizado con el sistema.</p>
+                    
+                    <div id="client-orders-container" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Administrativo -->
+        <div id="admin-dashboard" class="hidden space-y-8">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center">
+                        <i class="fas fa-chart-line text-pink-600 mr-3"></i> Dashboard Administrativo
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Monitorea el rendimiento de Boutique Glam Chic y gestiona el inventario.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="exportOrdersToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center justify-center space-x-2">
+                        <i class="fas fa-file-excel"></i> <span>Exportar Excel</span>
+                    </button>
+                    <button onclick="exportOrdersToPDF()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center justify-center space-x-2">
+                        <i class="fas fa-file-pdf"></i> <span>Exportar PDF</span>
+                    </button>
+                    <button onclick="loadAdminDashboardData()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center justify-center space-x-2">
+                        <i class="fas fa-sync-alt"></i> <span>Actualizar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tarjetas de Métricas Clave (KPIs) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center space-x-4">
+                    <div class="w-14 h-14 bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-inner">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-gray-400 tracking-wider">Ventas Totales</p>
+                        <h3 id="kpi-total-sales" class="text-2xl font-extrabold text-gray-900 dark:text-white mt-1">$0.00</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center space-x-4">
+                    <div class="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-inner">
+                        <i class="fas fa-shopping-bag"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-gray-400 tracking-wider">Pedidos Registrados</p>
+                        <h3 id="kpi-total-orders" class="text-2xl font-extrabold text-gray-900 dark:text-white mt-1">0</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center space-x-4 sm:col-span-2 lg:col-span-1">
+                    <div class="w-14 h-14 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-inner">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-gray-400 tracking-wider">Pendientes de Envío</p>
+                        <h3 id="kpi-pending-orders" class="text-2xl font-extrabold text-gray-900 dark:text-white mt-1">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfica de Ventas Recientes (Chart.js) -->
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <i class="fas fa-chart-bar text-pink-600 mr-2.5"></i> Comportamiento de Ventas (Últimos Registros)
+                </h2>
+                <div class="h-72 relative">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Formulario para Agregar Nuevo Producto -->
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <i class="fas fa-plus-circle text-pink-600 mr-2.5"></i> Agregar Nuevo Producto al Catálogo
+                </h2>
+                <form id="add-product-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Nombre</label>
+                        <input type="text" id="prod-name" required placeholder="Ej. Vestido Elegante" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Categoría</label>
+                        <select id="prod-category" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                            <option value="Vestidos">Vestidos</option>
+                            <option value="Accesorios">Accesorios</option>
+                            <option value="Calzado">Calzado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Precio ($)</label>
+                        <input type="number" step="0.01" id="prod-price" required placeholder="899.00" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">URL de Imagen</label>
+                        <input type="url" id="prod-image" required placeholder="https://images.unsplash.com/..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Descripción</label>
+                        <input type="text" id="prod-desc" required placeholder="Descripción breve..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    </div>
+                    <div class="sm:col-span-2 lg:col-span-3 flex justify-end">
+                        <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-xl font-medium text-sm transition-colors shadow-sm">
+                            <i class="fas fa-save mr-1.5"></i> Guardar Producto en MongoDB
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabla de Gestión de Inventario (CRUD Productos) -->
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden p-6 sm:p-8">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
+                    <i class="fas fa-boxes text-pink-600 mr-2.5"></i> Inventario de Productos (CRUD)
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                                <th class="p-4">Producto</th>
+                                <th class="p-4">Categoría</th>
+                                <th class="p-4">Precio</th>
+                                <th class="p-4 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-products-table" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tabla Detallada de Pedidos -->
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden p-6 sm:p-8">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
+                    <i class="fas fa-list-ul text-pink-600 mr-2.5"></i> Gestión de Pedidos del Sistema
+                </h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -115,40 +250,146 @@
                                 <th class="p-4">ID Pedido</th>
                                 <th class="p-4">Cliente</th>
                                 <th class="p-4">Artículos</th>
+                                <th class="p-4">Envío / Pago</th>
                                 <th class="p-4">Total</th>
                                 <th class="p-4">Estado</th>
-                                <th class="p-4">Fecha</th>
                             </tr>
                         </thead>
-                        <tbody id="admin-orders-table" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
-                            <!-- Se cargan dinámicamente -->
-                        </tbody>
+                        <tbody id="admin-orders-table" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
                     </table>
                 </div>
             </div>
         </div>
-
     </main>
 
-    <!-- Modal de Pedido / Carrito -->
+    <!-- Chatbot Asistente Virtual Flotante -->
+    <div class="fixed bottom-6 right-6 z-50">
+        <!-- Botón para abrir/cerrar chat -->
+        <button id="chatbot-toggle-btn" class="w-14 h-14 bg-pink-600 hover:bg-pink-700 text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition-transform hover:scale-110">
+            <i class="fas fa-comment-dots"></i>
+        </button>
+
+        <!-- Ventana del Chat -->
+        <div id="chatbot-window" class="hidden absolute bottom-16 right-0 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden transition-all">
+            <!-- Cabecera del Chat -->
+            <div class="bg-pink-600 text-white p-4 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm">Asistente Glam Chic</h4>
+                        <span class="text-xs text-pink-200 flex items-center"><span class="w-2 h-2 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span> En línea 24/7</span>
+                    </div>
+                </div>
+                <button id="chatbot-close-btn" class="text-white/80 hover:text-white text-lg px-2"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Cuerpo de Mensajes -->
+            <div id="chatbot-messages" class="p-4 h-80 overflow-y-auto space-y-3 text-xs bg-gray-50/50 dark:bg-gray-900/50">
+                <div class="flex items-start space-x-2">
+                    <div class="w-7 h-7 bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 rounded-full flex items-center justify-center flex-shrink-0 text-xs">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-3 rounded-2xl shadow-sm max-w-[80%] border border-gray-100 dark:border-gray-700">
+                        ¡Hola! 👋 Soy tu asistente virtual en Boutique Glam Chic. ¿En qué te puedo ayudar hoy? Puedes preguntarme sobre pagos, envíos o tallas.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input de Mensaje -->
+            <div class="p-3 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex items-center space-x-2">
+                <input type="text" id="chatbot-input" placeholder="Escribe tu duda aquí..." class="flex-grow px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500">
+                <button id="chatbot-send-btn" class="bg-pink-600 hover:bg-pink-700 text-white w-9 h-9 rounded-xl flex items-center justify-center text-xs transition-colors shadow-sm">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Producto -->
+    <div id="edit-product-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-lg rounded-3xl shadow-xl overflow-hidden p-6 relative">
+            <button onclick="closeEditModal()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <i class="fas fa-edit text-pink-600 mr-2.5"></i> Editar Producto
+            </h3>
+            <form id="edit-product-form" class="space-y-4">
+                <input type="hidden" id="edit-prod-id">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Nombre</label>
+                    <input type="text" id="edit-prod-name" required class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Categoría</label>
+                        <select id="edit-prod-category" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                            <option value="Vestidos">Vestidos</option>
+                            <option value="Accesorios">Accesorios</option>
+                            <option value="Calzado">Calzado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Precio ($)</label>
+                        <input type="number" step="0.01" id="edit-prod-price" required class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">URL de Imagen</label>
+                    <input type="url" id="edit-prod-image" required class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase">Descripción</label>
+                    <input type="text" id="edit-prod-desc" required class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                </div>
+                <div class="flex justify-end space-x-3 pt-3">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-sm font-medium">Cancelar</button>
+                    <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-xl font-medium text-sm transition-colors shadow-sm">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Carrito / Checkout -->
     <div id="order-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 w-full max-w-lg rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center space-x-2">
-                    <i class="fas fa-shopping-basket text-pink-600"></i> <span>Tu Pedido Actual</span>
+                    <i class="fas fa-shopping-basket text-pink-600"></i> <span>Finalizar tu Pedido</span>
                 </h3>
-                <button id="close-order-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
+                <button id="close-order-btn" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
             </div>
             
-            <div id="order-items-list" class="p-6 overflow-y-auto flex-grow space-y-4 divide-y divide-gray-50 dark:divide-gray-700">
-                <!-- Artículos del pedido -->
+            <div class="p-6 overflow-y-auto flex-grow space-y-6">
+                <div>
+                    <h4 class="text-xs font-bold uppercase text-gray-400 mb-3 tracking-wider">Artículos en el carrito</h4>
+                    <div id="order-items-list" class="space-y-3 divide-y divide-gray-50 dark:divide-gray-700"></div>
+                </div>
+
+                <div class="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <h4 class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Detalles de Entrega y Pago</h4>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Dirección de Envío</label>
+                        <input type="text" id="shipping-address" required placeholder="Calle, Número, Colonia, Ciudad" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Teléfono de Contacto</label>
+                        <input type="tel" id="client-phone" required placeholder="899 000 0000" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Método de Pago</label>
+                        <select id="payment-method" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
+                            <option value="Mercado Pago">Mercado Pago (Tarjeta, OXXO, SPEI)</option>
+                            <option value="Efectivo contra entrega">Efectivo contra entrega</option>
+                            <option value="Transferencia Bancaria Directa">Transferencia Bancaria Directa</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <div class="flex items-center justify-between mb-4">
-                    <span class="font-medium text-gray-600 dark:text-gray-400">Total Estimado:</span>
+                    <span class="font-medium text-gray-600 dark:text-gray-400">Total a Pagar:</span>
                     <span id="order-total" class="text-2xl font-extrabold text-pink-600 dark:text-pink-400">$0.00</span>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -156,19 +397,17 @@
                         <i class="fas fa-cloud-upload-alt"></i> <span>Sincronizar a MongoDB</span>
                     </button>
                     <button id="whatsapp-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-2xl font-medium text-sm transition-colors shadow-sm flex items-center justify-center space-x-2">
-                        <i class="fab fa-whatsapp"></i> <span>Enviar por WhatsApp</span>
+                        <i class="fab fa-whatsapp"></i> <span>WhatsApp</span>
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Autenticación (Login / Registro) -->
+    <!-- Modal Auth -->
     <div id="auth-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-3xl shadow-xl overflow-hidden p-6 relative">
-            <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                <i class="fas fa-times text-xl"></i>
-            </button>
+            <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
             
             <div class="text-center mb-6">
                 <div class="w-12 h-12 bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 rounded-2xl mx-auto flex items-center justify-center mb-3">
@@ -205,7 +444,6 @@
         </div>
     </div>
 
-    <!-- JavaScript Principal -->
-    <script src="app.js"></script>
+    <script src="./app.js"></script>
 </body>
 </html>

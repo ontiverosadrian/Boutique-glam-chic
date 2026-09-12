@@ -1,3 +1,8 @@
+// Definición automática de la URL de la API (Local en tu PC vs Nube en Render)
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:5000' 
+    : 'https://boutique-glam-chic.onrender.com';
+
 let isRegistering = false;
 let salesChartInstance = null;
 let cachedAdminOrders = [];
@@ -23,7 +28,7 @@ async function initializeApp() {
 
 async function fetchAndRenderProducts() {
     try {
-        const response = await fetch('http://localhost:5000/api/products');
+        const response = await fetch(`${API_URL}/api/products`);
         const products = await response.json();
         
         if (response.ok && products.length > 0) {
@@ -36,7 +41,7 @@ async function fetchAndRenderProducts() {
         console.log('Modo offline / web estática: cargando productos locales.');
     }
 
-    // Respaldo por defecto y local para cuando corre en la nube sin backend
+    // Respaldo por defecto y local para cuando falle la red
     let local = JSON.parse(localStorage.getItem('glam_products'));
     if (!local || local.length === 0) {
         local = [
@@ -320,7 +325,7 @@ function setupAuthForm() {
         const name = document.getElementById('auth-name').value;
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/login', {
+            const response = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(isRegistering ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' } : { email, password })
@@ -365,7 +370,7 @@ function setupProductForm() {
         const newProd = { id: Date.now().toString(), name, category, price, image, description };
 
         try {
-            const response = await fetch('http://localhost:5000/api/admin/products', {
+            const response = await fetch(`${API_URL}/api/admin/products`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newProd)
@@ -373,6 +378,7 @@ function setupProductForm() {
             if (response.ok) {
                 form.reset();
                 await fetchAndRenderProducts();
+                showToast('¡Producto agregado a la base de datos!');
                 return;
             }
         } catch (err) {
@@ -385,7 +391,7 @@ function setupProductForm() {
         form.reset();
         renderCatalog(products);
         renderAdminProductsTable(products);
-        showToast('¡Producto agregado localmente con éxito!');
+        showToast('¡Producto agregado localmente!');
     });
 }
 
@@ -424,7 +430,7 @@ function setupEditProductForm() {
         };
 
         try {
-            const response = await fetch(`http://localhost:5000/api/admin/products/${id}`, {
+            const response = await fetch(`${API_URL}/api/admin/products/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated)
@@ -432,6 +438,7 @@ function setupEditProductForm() {
             if (response.ok) {
                 closeEditModal();
                 await fetchAndRenderProducts();
+                showToast('¡Producto actualizado en la base de datos!');
                 return;
             }
         } catch (err) {
@@ -452,11 +459,11 @@ window.deleteProduct = async function(productId) {
     if (!confirm('¿Estás seguro de eliminar este producto del inventario?')) return;
 
     try {
-        const response = await fetch(`http://localhost:5000/api/admin/products/${productId}`, {
+        const response = await fetch(`${API_URL}/api/admin/products/${productId}`, {
             method: 'DELETE'
         });
         if (response.ok) {
-            showToast('Producto eliminado.');
+            showToast('Producto eliminado de la base de datos.');
             await fetchAndRenderProducts();
             return;
         }
@@ -500,7 +507,7 @@ async function loadClientOrderHistory() {
     container.innerHTML = `<div class="text-center py-10 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando tus pedidos...</div>`;
 
     try {
-        const response = await fetch(`http://localhost:5000/api/orders/client/${encodeURIComponent(session.email)}`);
+        const response = await fetch(`${API_URL}/api/orders/client/${encodeURIComponent(session.email)}`);
         const orders = await response.json();
 
         if (response.ok) {
@@ -875,7 +882,7 @@ window.loadAdminDashboardData = async function() {
     tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando métricas...</td></tr>`;
 
     try {
-        const response = await fetch('http://localhost:5000/api/admin/orders');
+        const response = await fetch(`${API_URL}/api/admin/orders`);
         const orders = await response.json();
         if (response.ok) {
             cachedAdminOrders = orders;
@@ -1134,7 +1141,7 @@ function renderPayPalButton() {
                 };
 
                 try {
-                    await fetch('http://localhost:5000/api/orders', {
+                    await fetch(`${API_URL}/api/orders`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newOrderRecord)

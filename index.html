@@ -20,6 +20,8 @@
     <!-- jsPDF y AutoTable para Exportar a PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <!-- SDK Oficial de PayPal -->
+    <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=MXN"></script>
     <!-- PWA Manifest -->
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#db2777">
@@ -65,21 +67,25 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Catálogo y Perfil del Cliente -->
         <div id="catalog-view">
-            <div class="text-center max-w-2xl mx-auto mb-10">
+            <div class="text-center max-w-3xl mx-auto mb-10">
                 <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white mb-3">Colección Exclusiva</h1>
                 <p class="text-gray-500 dark:text-gray-400 text-sm sm:text-base mb-6">Explora nuestra selección de moda y accesorios de alta calidad.</p>
                 
-                <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                    <div class="relative flex-grow max-w-md">
+                <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                    <div class="relative flex-grow max-w-md w-full">
                         <i class="fas fa-search absolute left-3.5 top-3.5 text-gray-400"></i>
                         <input type="text" id="search-input" placeholder="Buscar prendas, accesorios..." class="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm">
                     </div>
-                    <select id="category-filter" class="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm">
+                    <select id="category-filter" class="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm w-full sm:w-auto">
                         <option value="all">Todas las categorías</option>
                         <option value="Vestidos">Vestidos</option>
                         <option value="Accesorios">Accesorios</option>
                         <option value="Calzado">Calzado</option>
                     </select>
+                    <!-- Botón Descargar Catálogo PDF -->
+                    <button onclick="downloadCatalogPDF()" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 rounded-2xl text-sm font-medium transition-colors shadow-sm flex items-center justify-center space-x-2 whitespace-nowrap w-full sm:w-auto">
+                        <i class="fas fa-file-pdf"></i> <span>Catálogo PDF</span>
+                    </button>
                 </div>
             </div>
 
@@ -170,7 +176,7 @@
                 </div>
             </div>
 
-            <!-- Gráfica de Ventas Recientes (Chart.js) -->
+            <!-- Gráfica de Ventas Recientes -->
             <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <i class="fas fa-chart-bar text-pink-600 mr-2.5"></i> Comportamiento de Ventas (Últimos Registros)
@@ -264,14 +270,11 @@
 
     <!-- Chatbot Asistente Virtual Flotante -->
     <div class="fixed bottom-6 right-6 z-50">
-        <!-- Botón para abrir/cerrar chat -->
         <button id="chatbot-toggle-btn" class="w-14 h-14 bg-pink-600 hover:bg-pink-700 text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition-transform hover:scale-110">
             <i class="fas fa-comment-dots"></i>
         </button>
 
-        <!-- Ventana del Chat -->
         <div id="chatbot-window" class="hidden absolute bottom-16 right-0 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden transition-all">
-            <!-- Cabecera del Chat -->
             <div class="bg-pink-600 text-white p-4 flex items-center justify-between">
                 <div class="flex items-center space-x-3">
                     <div class="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">
@@ -285,7 +288,6 @@
                 <button id="chatbot-close-btn" class="text-white/80 hover:text-white text-lg px-2"><i class="fas fa-times"></i></button>
             </div>
 
-            <!-- Cuerpo de Mensajes -->
             <div id="chatbot-messages" class="p-4 h-80 overflow-y-auto space-y-3 text-xs bg-gray-50/50 dark:bg-gray-900/50">
                 <div class="flex items-start space-x-2">
                     <div class="w-7 h-7 bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 rounded-full flex items-center justify-center flex-shrink-0 text-xs">
@@ -297,7 +299,6 @@
                 </div>
             </div>
 
-            <!-- Input de Mensaje -->
             <div class="p-3 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex items-center space-x-2">
                 <input type="text" id="chatbot-input" placeholder="Escribe tu duda aquí..." class="flex-grow px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500">
                 <button id="chatbot-send-btn" class="bg-pink-600 hover:bg-pink-700 text-white w-9 h-9 rounded-xl flex items-center justify-center text-xs transition-colors shadow-sm">
@@ -367,7 +368,7 @@
                 </div>
 
                 <div class="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <h4 class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Detalles de Entrega y Pago</h4>
+                    <h4 class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Detalles de Entrega</h4>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Dirección de Envío</label>
                         <input type="text" id="shipping-address" required placeholder="Calle, Número, Colonia, Ciudad" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
@@ -375,14 +376,6 @@
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Teléfono de Contacto</label>
                         <input type="tel" id="client-phone" required placeholder="899 000 0000" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Método de Pago</label>
-                        <select id="payment-method" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
-                            <option value="Mercado Pago">Mercado Pago (Tarjeta, OXXO, SPEI)</option>
-                            <option value="Efectivo contra entrega">Efectivo contra entrega</option>
-                            <option value="Transferencia Bancaria Directa">Transferencia Bancaria Directa</option>
-                        </select>
                     </div>
                 </div>
             </div>
@@ -392,12 +385,16 @@
                     <span class="font-medium text-gray-600 dark:text-gray-400">Total a Pagar:</span>
                     <span id="order-total" class="text-2xl font-extrabold text-pink-600 dark:text-pink-400">$0.00</span>
                 </div>
+                
+                <!-- Contenedor del Botón Inteligente de PayPal -->
+                <div id="paypal-button-container" class="mb-3"></div>
+
                 <div class="grid grid-cols-2 gap-3">
-                    <button id="checkout-btn" class="bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-2xl font-medium text-sm transition-colors shadow-sm flex items-center justify-center space-x-2">
-                        <i class="fas fa-cloud-upload-alt"></i> <span>Sincronizar a MongoDB</span>
-                    </button>
                     <button id="whatsapp-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-2xl font-medium text-sm transition-colors shadow-sm flex items-center justify-center space-x-2">
                         <i class="fab fa-whatsapp"></i> <span>WhatsApp</span>
+                    </button>
+                    <button onclick="document.getElementById('order-modal').classList.add('hidden')" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-gray-700 dark:text-gray-200 py-3 rounded-2xl font-medium text-sm transition-colors shadow-sm">
+                        Seguir Comprando
                     </button>
                 </div>
             </div>

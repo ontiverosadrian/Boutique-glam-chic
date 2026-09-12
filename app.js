@@ -26,37 +26,27 @@ async function fetchAndRenderProducts() {
         const response = await fetch('http://localhost:5000/api/products');
         const products = await response.json();
         
-        if (response.ok) {
-            if (products.length === 0) {
-                await seedInitialProducts();
-                return;
-            }
+        if (response.ok && products.length > 0) {
             localStorage.setItem('glam_products', JSON.stringify(products));
             renderCatalog(products);
             renderAdminProductsTable(products);
+            return;
         }
     } catch (err) {
-        console.error('Error al conectar con la API de productos:', err);
-        const local = JSON.parse(localStorage.getItem('glam_products')) || [];
-        renderCatalog(local);
-        renderAdminProductsTable(local);
+        console.log('Modo offline / web estática: cargando productos locales.');
     }
-}
 
-async function seedInitialProducts() {
-    const defaultProducts = [
-        { name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables." },
-        { name: "Bolso de Mano Elegante", category: "Accesorios", price: 549.00, image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=60", description: "Bolso compacto con detalles metálicos dorados." }
-    ];
-
-    for (let p of defaultProducts) {
-        await fetch('http://localhost:5000/api/admin/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(p)
-        });
+    // Respaldo por defecto y local para cuando corre en la nube sin backend
+    let local = JSON.parse(localStorage.getItem('glam_products'));
+    if (!local || local.length === 0) {
+        local = [
+            { name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables." },
+            { name: "Bolso de Mano Elegante", category: "Accesorios", price: 549.00, image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=60", description: "Bolso compacto con detalles metálicos dorados." }
+        ];
+        localStorage.setItem('glam_products', JSON.stringify(local));
     }
-    fetchAndRenderProducts();
+    renderCatalog(local);
+    renderAdminProductsTable(local);
 }
 
 function getStoredProducts() {
@@ -86,6 +76,7 @@ function renderCatalog(itemsToRender) {
     }
 
     itemsToRender.forEach(product => {
+        const prodId = product._id || product.id || Math.random().toString();
         const card = document.createElement('div');
         card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col';
         card.innerHTML = `
@@ -100,7 +91,7 @@ function renderCatalog(itemsToRender) {
                 <p class="text-gray-500 dark:text-gray-400 text-sm mb-4 flex-grow">${product.description || ''}</p>
                 <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
                     <span class="text-xl font-extrabold text-pink-600 dark:text-pink-400">$${product.price.toFixed(2)}</span>
-                    <button onclick="addToOrder('${product._id || product.id}')" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-1.5">
+                    <button onclick="addToOrder('${prodId}')" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-1.5">
                         <i class="fas fa-plus"></i> <span>Añadir</span>
                     </button>
                 </div>
@@ -120,8 +111,8 @@ function renderAdminProductsTable(products) {
     }
 
     tableBody.innerHTML = '';
-    products.forEach(p => {
-        const prodId = p._id || p.id;
+    products.forEach((p, index) => {
+        const prodId = p._id || p.id || index;
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
         tr.innerHTML = `
@@ -146,11 +137,11 @@ function renderAdminProductsTable(products) {
 
 window.addToOrder = function(productId) {
     const allProducts = getStoredProducts();
-    const product = allProducts.find(p => (p._id === productId || p.id == productId));
+    const product = allProducts.find(p => (p._id === productId || p.id == productId || String(p.id) === String(productId)));
     if (!product) return;
 
     let currentOrder = getSavedOrder();
-    const existingItem = currentOrder.find(item => (item._id === productId || item.id == productId));
+    const existingItem = currentOrder.find(item => (item._id === productId || item.id == productId || String(item.id) === String(productId)));
 
     if (existingItem) {
         existingItem.quantity += 1;
@@ -164,7 +155,7 @@ window.addToOrder = function(productId) {
 
 function removeFromOrder(productId) {
     let currentOrder = getSavedOrder();
-    currentOrder = currentOrder.filter(item => (item._id !== productId && item.id != productId));
+    currentOrder = currentOrder.filter(item => (item._id !== productId && item.id != productId && String(item.id) !== String(productId)));
     saveOrderToStorage(currentOrder);
     renderOrderModalContent();
 }
@@ -206,6 +197,7 @@ function renderOrderModalContent() {
     currentOrder.forEach(item => {
         const itemTotal = item.price * item.quantity;
         grandTotal += itemTotal;
+        const itemId = item._id || item.id;
 
         const div = document.createElement('div');
         div.className = 'flex items-center justify-between pt-2 first:pt-0';
@@ -219,7 +211,7 @@ function renderOrderModalContent() {
             </div>
             <div class="flex items-center space-x-3">
                 <span class="font-bold text-pink-600 dark:text-pink-400 text-xs">$${itemTotal.toFixed(2)}</span>
-                <button onclick="removeFromOrder('${item._id || item.id}')" class="text-gray-400 hover:text-red-500 transition-colors p-1">
+                <button onclick="removeFromOrder('${itemId}')" class="text-gray-400 hover:text-red-500 transition-colors p-1">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
@@ -327,14 +319,11 @@ function setupAuthForm() {
         const password = document.getElementById('auth-password').value;
         const name = document.getElementById('auth-name').value;
 
-        const endpoint = isRegistering ? 'http://localhost:5000/api/auth/register' : 'http://localhost:5000/api/auth/login';
-        const payload = isRegistering ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' } : { email, password };
-
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch('http://localhost:5000/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(isRegistering ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' } : { email, password })
             });
             const data = await response.json();
 
@@ -352,8 +341,12 @@ function setupAuthForm() {
                 alert(data.error || 'Ocurrió un error en la autenticación.');
             }
         } catch (err) {
-            console.error('Error de red:', err);
-            alert('No se pudo conectar con el servidor backend en localhost:5000.');
+            // Modo local/estático simulado para autenticación si no hay servidor
+            const dummyUser = { name: name || (email.includes('admin') ? 'Administrador' : 'Cliente'), email, role: email.includes('admin') ? 'admin' : 'client' };
+            localStorage.setItem('glam_user_session', JSON.stringify(dummyUser));
+            closeAuthModal();
+            checkUserSession();
+            showToast(`¡Bienvenido, ${dummyUser.name}!`);
         }
     });
 }
@@ -370,24 +363,31 @@ function setupProductForm() {
         const image = document.getElementById('prod-image').value;
         const description = document.getElementById('prod-desc').value;
 
+        const newProd = { id: Date.now().toString(), name, category, price, image, description };
+
         try {
             const response = await fetch('http://localhost:5000/api/admin/products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, category, price, image, description })
+                body: JSON.stringify(newProd)
             });
-
             if (response.ok) {
-                alert('¡Producto agregado con éxito a MongoDB!');
                 form.reset();
                 await fetchAndRenderProducts();
-            } else {
-                alert('Error al guardar el producto.');
+                return;
             }
         } catch (err) {
-            console.error('Error:', err);
-            alert('Error de red al registrar el producto.');
+            console.log('Guardando producto localmente...');
         }
+
+        // Respaldo local si no hay servidor
+        const products = getStoredProducts();
+        products.push(newProd);
+        localStorage.setItem('glam_products', JSON.stringify(products));
+        form.reset();
+        renderCatalog(products);
+        renderAdminProductsTable(products);
+        showToast('¡Producto agregado localmente con éxito!');
     });
 }
 
@@ -417,30 +417,37 @@ function setupEditProductForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('edit-prod-id').value;
-        const name = document.getElementById('edit-prod-name').value;
-        const category = document.getElementById('edit-prod-category').value;
-        const price = parseFloat(document.getElementById('edit-prod-price').value);
-        const image = document.getElementById('edit-prod-image').value;
-        const description = document.getElementById('edit-prod-desc').value;
+        const updated = {
+            name: document.getElementById('edit-prod-name').value,
+            category: document.getElementById('edit-prod-category').value,
+            price: parseFloat(document.getElementById('edit-prod-price').value),
+            image: document.getElementById('edit-prod-image').value,
+            description: document.getElementById('edit-prod-desc').value
+        };
 
         try {
             const response = await fetch(`http://localhost:5000/api/admin/products/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, category, price, image, description })
+                body: JSON.stringify(updated)
             });
-
             if (response.ok) {
-                alert('¡Producto actualizado correctamente en MongoDB!');
                 closeEditModal();
                 await fetchAndRenderProducts();
-            } else {
-                alert('Error al actualizar el producto.');
+                return;
             }
         } catch (err) {
-            console.error('Error:', err);
-            alert('Error de red al actualizar.');
+            console.log('Actualizando producto localmente...');
         }
+
+        // Respaldo local si no hay servidor
+        let products = getStoredProducts();
+        products = products.map(p => (p._id === id || p.id == id) ? { ...p, ...updated } : p);
+        localStorage.setItem('glam_products', JSON.stringify(products));
+        closeEditModal();
+        renderCatalog(products);
+        renderAdminProductsTable(products);
+        showToast('¡Producto actualizado localmente!');
     });
 }
 
@@ -451,17 +458,22 @@ window.deleteProduct = async function(productId) {
         const response = await fetch(`http://localhost:5000/api/admin/products/${productId}`, {
             method: 'DELETE'
         });
-
         if (response.ok) {
             showToast('Producto eliminado.');
             await fetchAndRenderProducts();
-        } else {
-            alert('Error al eliminar el producto.');
+            return;
         }
     } catch (err) {
-        console.error('Error:', err);
-        alert('Error de red al eliminar.');
+        console.log('Eliminando producto localmente...');
     }
+
+    // Respaldo local si no hay servidor
+    let products = getStoredProducts();
+    products = products.filter(p => p._id !== productId && p.id != productId);
+    localStorage.setItem('glam_products', JSON.stringify(products));
+    renderCatalog(products);
+    renderAdminProductsTable(products);
+    showToast('Producto eliminado localmente.');
 }
 
 window.switchClientView = function(view) {
@@ -497,68 +509,77 @@ async function loadClientOrderHistory() {
 
         if (response.ok) {
             cachedClientOrders = orders;
-
-            if (orders.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-12 text-gray-400 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-                        <i class="fas fa-box-open text-4xl mb-2"></i>
-                        <p class="text-sm">Aún no has registrado ningún pedido en la base de datos.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = '';
-            orders.forEach((order) => {
-                const date = new Date(order.createdAt).toLocaleString();
-                let itemsListHtml = order.items.map(i => `
-                    <div class="flex justify-between text-xs text-gray-600 dark:text-gray-300 py-1 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
-                        <span>${i.quantity}x ${i.name}</span>
-                        <span class="font-medium">$${(i.price * i.quantity).toFixed(2)}</span>
-                    </div>
-                `).join('');
-
-                const card = document.createElement('div');
-                card.className = 'bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 shadow-sm';
-                card.innerHTML = `
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-gray-200 dark:border-gray-700 gap-2">
-                        <div>
-                            <span class="text-xs font-mono text-pink-600 dark:text-pink-400 font-semibold">Pedido ID: ${order._id}</span>
-                            <p class="text-xs text-gray-400 mt-0.5"><i class="far fa-clock mr-1"></i> ${date}</p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                                ${order.status}
-                            </span>
-                            <button onclick="downloadClientTicket('${order._id}')" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-medium transition-colors shadow-sm flex items-center space-x-1">
-                                <i class="fas fa-file-pdf"></i> <span>Ticket PDF</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="space-y-2 mb-3 text-xs text-gray-600 dark:text-gray-300">
-                        <p><strong class="text-gray-800 dark:text-gray-100">Dirección:</strong> ${order.shippingAddress || 'No especificada'}</p>
-                        <p><strong class="text-gray-800 dark:text-gray-100">Teléfono:</strong> ${order.clientPhone || 'No especificado'}</p>
-                        <p><strong class="text-gray-800 dark:text-gray-100">Método de Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
-                    </div>
-                    <div class="space-y-1 mb-3 pt-2 border-t border-gray-100 dark:border-gray-700">
-                        ${itemsListHtml}
-                    </div>
-                    <div class="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700 font-bold text-sm">
-                        <span class="text-gray-700 dark:text-gray-300">Total pagado:</span>
-                        <span class="text-pink-600 dark:text-pink-400 text-base">$${order.total.toFixed(2)}</span>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
+            renderOrdersList(orders, container);
+            return;
         }
     } catch (err) {
-        console.error('Error al cargar historial:', err);
-        container.innerHTML = `<div class="text-center py-10 text-red-400">Error de conexión al cargar tu historial.</div>`;
+        console.log('Cargando historial local...');
     }
+
+    // Respaldo local de pedidos
+    const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+    cachedClientOrders = localOrders;
+    renderOrdersList(localOrders, container);
+}
+
+function renderOrdersList(orders, container) {
+    if (orders.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-400 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                <i class="fas fa-box-open text-4xl mb-2"></i>
+                <p class="text-sm">Aún no has registrado ningún pedido.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = '';
+    orders.forEach((order) => {
+        const orderId = order._id || order.id;
+        const date = new Date(order.createdAt || Date.now()).toLocaleString();
+        let itemsListHtml = order.items.map(i => `
+            <div class="flex justify-between text-xs text-gray-600 dark:text-gray-300 py-1 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                <span>${i.quantity}x ${i.name}</span>
+                <span class="font-medium">$${(i.price * i.quantity).toFixed(2)}</span>
+            </div>
+        `).join('');
+
+        const card = document.createElement('div');
+        card.className = 'bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 shadow-sm';
+        card.innerHTML = `
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-gray-200 dark:border-gray-700 gap-2">
+                <div>
+                    <span class="text-xs font-mono text-pink-600 dark:text-pink-400 font-semibold">Pedido ID: ${orderId}</span>
+                    <p class="text-xs text-gray-400 mt-0.5"><i class="far fa-clock mr-1"></i> ${date}</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                        ${order.status || 'Pendiente'}
+                    </span>
+                    <button onclick="downloadClientTicket('${orderId}')" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-medium transition-colors shadow-sm flex items-center space-x-1">
+                        <i class="fas fa-file-pdf"></i> <span>Ticket PDF</span>
+                    </button>
+                </div>
+            </div>
+            <div class="space-y-2 mb-3 text-xs text-gray-600 dark:text-gray-300">
+                <p><strong class="text-gray-800 dark:text-gray-100">Dirección:</strong> ${order.shippingAddress || 'No especificada'}</p>
+                <p><strong class="text-gray-800 dark:text-gray-100">Teléfono:</strong> ${order.clientPhone || 'No especificado'}</p>
+                <p><strong class="text-gray-800 dark:text-gray-100">Método de Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
+            </div>
+            <div class="space-y-1 mb-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+                ${itemsListHtml}
+            </div>
+            <div class="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700 font-bold text-sm">
+                <span class="text-gray-700 dark:text-gray-300">Total pagado:</span>
+                <span class="text-pink-600 dark:text-pink-400 text-base">$${order.total.toFixed(2)}</span>
+            </div>
+        `;
+        container.appendChild(card);
+    });
 }
 
 window.downloadClientTicket = function(orderId) {
-    const order = cachedClientOrders.find(o => o._id === orderId);
+    const order = cachedClientOrders.find(o => (o._id === orderId || o.id == orderId));
     if (!order) {
         alert('No se encontró la información del pedido.');
         return;
@@ -579,8 +600,8 @@ window.downloadClientTicket = function(orderId) {
 
     doc.setFontSize(8);
     doc.setTextColor(50, 50, 50);
-    doc.text(`Folio ID: ${order._id.substring(0, 12)}...`, 5, 24);
-    doc.text(`Fecha: ${new Date(order.createdAt).toLocaleString()}`, 5, 29);
+    doc.text(`Folio ID: ${String(order._id || order.id).substring(0, 12)}...`, 5, 24);
+    doc.text(`Fecha: ${new Date(order.createdAt || Date.now()).toLocaleString()}`, 5, 29);
     doc.text(`Cliente: ${order.clientName || 'Cliente'}`, 5, 34);
     doc.text(`Tel: ${order.clientPhone || 'N/D'}`, 5, 39);
     doc.text(`Dir: ${order.shippingAddress || 'N/D'}`, 5, 44);
@@ -617,9 +638,124 @@ window.downloadClientTicket = function(orderId) {
     doc.text("¡Gracias por tu compra en Glam Chic!", 40, finalY + 14, { align: "center" });
     doc.text("Conserva este ticket para cualquier aclaración.", 40, 18, { align: "center" });
 
-    doc.save(`Ticket_GlamChic_${order._id.substring(0, 6)}.pdf`);
+    doc.save(`Ticket_GlamChic_${String(order._id || order.id).substring(0, 6)}.pdf`);
     showToast('¡Ticket en PDF descargado con éxito!');
 }
+
+window.downloadCatalogPDF = async function() {
+    try {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            alert('La librería jsPDF aún no se ha cargado. Revisa tu conexión a internet.');
+            return;
+        }
+
+        const products = getStoredProducts();
+        if (!products || products.length === 0) {
+            alert('No hay productos disponibles en el catálogo para exportar.');
+            return;
+        }
+
+        showToast('Generando catálogo visual en PDF...');
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(22);
+        doc.setTextColor(219, 39, 119);
+        doc.text("Colección Exclusiva", 105, 20, { align: "center" });
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Explora nuestra selección de moda y accesorios de alta calidad.", 105, 26, { align: "center" });
+        doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 105, 32, { align: "center" });
+
+        const getBase64ImageFromURL = (url) => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/jpeg'));
+                };
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+        };
+
+        let startX = 15;
+        let startY = 42;
+        let cardWidth = 55;
+        let cardHeight = 85;
+        let gapX = 10;
+        let gapY = 12;
+        let itemsPerRow = 3;
+
+        for (let i = 0; i < products.length; i++) {
+            const p = products[i];
+
+            if (startY + cardHeight > 275) {
+                doc.addPage();
+                startY = 20;
+            }
+
+            let col = i % itemsPerRow;
+            let row = Math.floor(i / itemsPerRow);
+            let x = startX + col * (cardWidth + gapX);
+            let y = startY + row * (cardHeight + gapY);
+
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(230, 230, 230);
+            doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'FD');
+
+            if (p.image) {
+                let base64Img = await getBase64ImageFromURL(p.image);
+                if (base64Img) {
+                    try {
+                        doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42);
+                    } catch (e) {
+                        console.error("Error al pintar imagen en tarjeta", e);
+                    }
+                }
+            }
+
+            doc.setFillColor(30, 30, 30);
+            doc.roundedRect(x + cardWidth - 25, y + 4, 22, 6, 2, 2, 'F');
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(255, 255, 255);
+            doc.text(p.category || 'General', x + cardWidth - 14, y + 8, { align: "center" });
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(30, 30, 30);
+            let cleanName = doc.splitTextToSize(p.name || 'Sin nombre', cardWidth - 8);
+            doc.text(cleanName, x + 4, y + 50);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            let cleanDesc = doc.splitTextToSize(p.description || '', cardWidth - 8);
+            doc.text(cleanDesc.slice(0, 2), x + 4, y + 58);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(219, 39, 119);
+            doc.text(`$${(p.price || 0).toFixed(2)}`, x + 6, y + 76);
+        }
+
+        doc.save("Catalogo_Visual_GlamChic.pdf");
+        showToast('¡Catálogo visual en PDF generado con éxito!');
+
+    } catch (error) {
+        console.error('Error al generar el PDF visual:', error);
+        alert('Ocurrió un error al generar el PDF visual.');
+    }
+};
 
 function setupChatbot() {
     const toggleBtn = document.getElementById('chatbot-toggle-btn');
@@ -687,43 +823,33 @@ function appendChatMessage(text, sender) {
 function generateBotResponse(userMsg) {
     const msg = userMsg.toLowerCase().trim();
 
-    // Saludos y cortesía
     if (msg.includes('hola') || msg.includes('buenos dias') || msg.includes('buenas tardes') || msg.includes('buenas noches') || msg.includes('que tal')) {
         return "¡Hola! Qué gusto saludarte en Boutique Glam Chic. 💖 ¿Cómo puedo ayudarte hoy? Puedes preguntarme sobre pagos, envíos, vestidos o nuestras ubicaciones.";
     } 
-    // Métodos de pago
     else if (msg.includes('pago') || msg.includes('pagar') || msg.includes('tarjeta') || msg.includes('efectivo') || msg.includes('transferencia') || msg.includes('oxxo')) {
-        return "💳 Contamos con múltiples métodos de pago seguros:\n1. Efectivo contra entrega.\n2. Transferencia bancaria directa.\n3. Tarjetas de crédito/débito y pagos digitales.";
+        return "💳 Contamos con múltiples métodos de pago seguros:\n1. PayPal / Tarjetas de crédito/débito.\n2. Efectivo contra entrega.\n3. Transferencia bancaria directa.";
     } 
-    // Envíos y entregas
     else if (msg.includes('envio') || msg.includes('entrega') || msg.includes('tiempo') || msg.includes('llega') || msg.includes('costo') || msg.includes('domicilio')) {
         return "🚚 Realizamos envíos locales y nacionales. El tiempo estimado de entrega es de 2 a 3 días hábiles una vez confirmado tu pedido en el sistema.";
     } 
-    // Productos, vestidos y categorías
     else if (msg.includes('vestido') || msg.includes('ropa') || msg.includes('accesorio') || msg.includes('calzado') || msg.includes('catalogo') || msg.includes('productos') || msg.includes('muestrame')) {
         return "👗 Tenemos una colección exclusiva de vestidos midi, bolsos y accesorios de alta calidad. Puedes explorar y filtrar todo nuestro catálogo directamente en la página principal.";
     } 
-    // Ubicación / Tienda física
     else if (msg.includes('ubicacion') || msg.includes('donde') || msg.includes('tienda') || msg.includes('local') || msg.includes('sucursal')) {
         return "📍 Operamos principalmente como una boutique digital exclusiva con entregas programadas y atención en línea las 24 horas.";
     }
-    // Horarios
     else if (msg.includes('horario') || msg.includes('atienden') || msg.includes('abierto') || msg.includes('horas')) {
         return "🕒 Nuestra tienda digital y este asistente virtual están disponibles las 24 horas, los 365 días del año para tomar tus pedidos.";
     }
-    // Cambios o devoluciones
     else if (msg.includes('cambio') || msg.includes('devolucion') || msg.includes('garantia') || msg.includes('regresar')) {
         return "🔄 Tienes hasta 7 días posteriores a la recepción de tu pedido para solicitar un cambio de talla o aclaración, siempre que la prenda conserve su viñeta original.";
     }
-    // Descuentos o promociones
     else if (msg.includes('descuento') || msg.includes('oferta') || msg.includes('promo') || msg.includes('cupon')) {
         return "✨ ¡Mantente atento a nuestras publicaciones! Frecuentemente lanzamos dinámicas y códigos promocionales especiales para nuestras clientas frecuentes.";
     }
-    // Contacto humano o WhatsApp directo
     else if (msg.includes('contacto') || msg.includes('telefono') || msg.includes('whatsapp') || msg.includes('humano') || msg.includes('asesor')) {
         return "📱 Claro que sí. Si necesitas atención directa con un asesor humano, puedes hacer clic en el botón verde de 'WhatsApp' dentro de tu carrito de compras.";
     } 
-    // Respuesta por defecto
     else {
         return "Interesante pregunta. 🤔 En Glam Chic nos especializamos en moda exclusiva. ¿Te gustaría saber más sobre nuestros métodos de pago, tiempos de entrega o ver el catálogo de vestidos?";
     }
@@ -737,62 +863,69 @@ window.loadAdminDashboardData = async function() {
 
     if (!tableBody) return;
 
-    tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando métricas desde MongoDB...</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando métricas...</td></tr>`;
 
     try {
         const response = await fetch('http://localhost:5000/api/admin/orders');
         const orders = await response.json();
-
         if (response.ok) {
             cachedAdminOrders = orders;
-
-            const totalOrdersCount = orders.length;
-            const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-            const pendingCount = orders.filter(order => order.status === 'Pendiente').length;
-
-            if (totalSalesEl) totalSalesEl.textContent = `$${totalRevenue.toFixed(2)}`;
-            if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersCount;
-            if (pendingOrdersEl) pendingOrdersEl.textContent = pendingCount;
-
-            renderSalesChart(orders);
-
-            if (orders.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">No hay pedidos registrados en la base de datos todavía.</td></tr>`;
-                return;
-            }
-
-            tableBody.innerHTML = '';
-            orders.forEach(order => {
-                const itemsSummary = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
-                const date = new Date(order.createdAt).toLocaleDateString();
-                
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
-                tr.innerHTML = `
-                    <td class="p-4 font-mono text-xs text-pink-600 dark:text-pink-400 font-semibold">${order._id}</td>
-                    <td class="p-4">
-                        <p class="font-semibold text-gray-800 dark:text-gray-200">${order.clientName || 'Cliente'}</p>
-                        <p class="text-xs text-gray-500">${order.clientEmail}</p>
-                    </td>
-                    <td class="p-4 text-xs text-gray-600 dark:text-gray-300 max-w-xs truncate" title="${itemsSummary}">${itemsSummary}</td>
-                    <td class="p-4 text-xs text-gray-600 dark:text-gray-300">
-                        <p><strong>Dir:</strong> ${order.shippingAddress || 'N/D'}</p>
-                        <p><strong>Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
-                    </td>
-                    <td class="p-4 font-bold text-gray-900 dark:text-white">$${order.total.toFixed(2)}</td>
-                    <td class="p-4">
-                        <span class="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                            ${order.status}
-                        </span>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
+            processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody);
+            return;
         }
     } catch (err) {
-        console.error('Error al conectar con el dashboard admin:', err);
-        tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-400">Sin conexión con el servidor central.</td></tr>`;
+        console.log('Cargando órdenes administrativas locales...');
     }
+
+    // Respaldo local de órdenes para admin
+    const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+    cachedAdminOrders = localOrders;
+    processAdminOrders(localOrders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody);
+}
+
+function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody) {
+    const totalOrdersCount = orders.length;
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const pendingCount = orders.filter(order => order.status === 'Pendiente').length;
+
+    if (totalSalesEl) totalSalesEl.textContent = `$${totalRevenue.toFixed(2)}`;
+    if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersCount;
+    if (pendingOrdersEl) pendingOrdersEl.textContent = pendingCount;
+
+    renderSalesChart(orders);
+
+    if (orders.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">No hay pedidos registrados todavía.</td></tr>`;
+        return;
+    }
+
+    tableBody.innerHTML = '';
+    orders.forEach(order => {
+        const orderId = order._id || order.id;
+        const itemsSummary = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+        
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
+        tr.innerHTML = `
+            <td class="p-4 font-mono text-xs text-pink-600 dark:text-pink-400 font-semibold">${orderId}</td>
+            <td class="p-4">
+                <p class="font-semibold text-gray-800 dark:text-gray-200">${order.clientName || 'Cliente'}</p>
+                <p class="text-xs text-gray-500">${order.clientEmail || 'N/D'}</p>
+            </td>
+            <td class="p-4 text-xs text-gray-600 dark:text-gray-300 max-w-xs truncate" title="${itemsSummary}">${itemsSummary}</td>
+            <td class="p-4 text-xs text-gray-600 dark:text-gray-300">
+                <p><strong>Dir:</strong> ${order.shippingAddress || 'N/D'}</p>
+                <p><strong>Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
+            </td>
+            <td class="p-4 font-bold text-gray-900 dark:text-white">$${order.total.toFixed(2)}</td>
+            <td class="p-4">
+                <span class="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                    ${order.status || 'Pendiente'}
+                </span>
+            </td>
+        `;
+        tableBody.appendChild(tr);
+    });
 }
 
 window.exportOrdersToExcel = function() {
@@ -802,15 +935,15 @@ window.exportOrdersToExcel = function() {
     }
 
     const dataToExport = cachedAdminOrders.map(o => ({
-        'ID Pedido': o._id,
+        'ID Pedido': o._id || o.id,
         'Cliente': o.clientName || 'N/D',
-        'Correo': o.clientEmail,
+        'Correo': o.clientEmail || 'N/D',
         'Teléfono': o.clientPhone || 'N/D',
         'Dirección': o.shippingAddress || 'N/D',
         'Método de Pago': o.paymentMethod || 'N/D',
         'Total ($)': o.total,
-        'Estatus': o.status,
-        'Fecha': new Date(o.createdAt).toLocaleString()
+        'Estatus': o.status || 'Pendiente',
+        'Fecha': new Date(o.createdAt || Date.now()).toLocaleString()
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -840,13 +973,13 @@ window.exportOrdersToPDF = function() {
 
     const tableColumns = ["ID Pedido", "Cliente", "Teléfono", "Método Pago", "Total", "Estatus", "Fecha"];
     const tableRows = cachedAdminOrders.map(o => [
-        o._id.substring(0, 8) + '...',
-        o.clientName || o.clientEmail,
+        String(o._id || o.id).substring(0, 8) + '...',
+        o.clientName || o.clientEmail || 'Cliente',
         o.clientPhone || 'N/D',
         o.paymentMethod || 'Efectivo',
         `$${o.total.toFixed(2)}`,
-        o.status,
-        new Date(o.createdAt).toLocaleDateString()
+        o.status || 'Pendiente',
+        new Date(o.createdAt || Date.now()).toLocaleDateString()
     ]);
 
     doc.autoTable({
@@ -867,7 +1000,7 @@ function renderSalesChart(orders) {
     if (!ctx) return;
 
     const recentOrders = [...orders].reverse().slice(-6);
-    const labels = recentOrders.map(o => new Date(o.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+    const labels = recentOrders.map(o => new Date(o.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
     const dataValues = recentOrders.map(o => o.total);
 
     if (salesChartInstance) {
@@ -910,7 +1043,6 @@ function setupOrderModal() {
     const modal = document.getElementById('order-modal');
     const openBtn = document.getElementById('open-order-btn');
     const closeBtn = document.getElementById('close-order-btn');
-    const checkoutBtn = document.getElementById('checkout-btn');
     const whatsappBtn = document.getElementById('whatsapp-btn');
 
     if (!modal || !openBtn) return;
@@ -918,56 +1050,11 @@ function setupOrderModal() {
     openBtn.addEventListener('click', () => {
         renderOrderModalContent();
         modal.classList.remove('hidden');
+        renderPayPalButton();
     });
 
     if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
-
-    if (checkoutBtn) {
-        checkoutBtn.addEventListener('click', async () => {
-            const order = getSavedOrder();
-            const session = JSON.parse(localStorage.getItem('glam_user_session'));
-            const address = document.getElementById('shipping-address').value;
-            const phone = document.getElementById('client-phone').value;
-            const paymentMethod = document.getElementById('payment-method').value;
-
-            if (order.length === 0) { alert('Tu pedido está vacío.'); return; }
-            if (!session) { alert('Debes iniciar sesión para sincronizar tu pedido.'); openAuthModal(); return; }
-            if (!address || !phone) { alert('Por favor, completa la dirección de envío y el teléfono.'); return; }
-
-            const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-            try {
-                const response = await fetch('http://localhost:5000/api/orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        clientEmail: session.email, 
-                        clientName: session.name, 
-                        shippingAddress: address,
-                        clientPhone: phone,
-                        paymentMethod: paymentMethod,
-                        items: order, 
-                        total: total 
-                    })
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    alert(`¡Pedido guardado con éxito en MongoDB! ID: ${data.orderId}`);
-                    localStorage.removeItem('glam_saved_order');
-                    updateOrderBadge();
-                    renderOrderModalContent();
-                    modal.classList.add('hidden');
-                } else {
-                    alert('Error al sincronizar con el servidor.');
-                }
-            } catch (error) {
-                console.error('Error de red:', error);
-                alert('No se pudo conectar con el servidor backend.');
-            }
-        });
-    }
 
     if (whatsappBtn) {
         whatsappBtn.addEventListener('click', () => {
@@ -981,9 +1068,90 @@ function setupOrderModal() {
                 total += item.price * item.quantity;
             });
             message += `\n*Total Estimado: $${total.toFixed(2)}*`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+
+            const phoneNumber = "5218995432261"; 
+            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
         });
     }
+}
+
+function renderPayPalButton() {
+    const container = document.getElementById('paypal-button-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (typeof paypal === 'undefined') {
+        container.innerHTML = '<p class="text-xs text-red-500 text-center">SDK de PayPal no disponible en modo estático.</p>';
+        return;
+    }
+
+    paypal.Buttons({
+        createOrder: (data, actions) => {
+            const order = getSavedOrder();
+            const session = JSON.parse(localStorage.getItem('glam_user_session'));
+            const address = document.getElementById('shipping-address').value;
+            const phone = document.getElementById('client-phone').value;
+
+            if (order.length === 0) { alert('Tu pedido está vacío.'); throw new Error('Carrito vacío'); }
+            if (!session) { alert('Debes iniciar sesión para procesar tu pago.'); openAuthModal(); throw new Error('Sin sesión'); }
+            if (!address || !phone) { alert('Por favor, completa la dirección de envío y el teléfono.'); throw new Error('Faltan datos'); }
+
+            const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            return actions.order.create({
+                purchase_units: [{
+                    amount: { value: total.toFixed(2) }
+                }]
+            });
+        },
+        onApprove: async (data, actions) => {
+            return actions.order.capture().then(async (details) => {
+                const order = getSavedOrder();
+                const session = JSON.parse(localStorage.getItem('glam_user_session'));
+                const address = document.getElementById('shipping-address').value;
+                const phone = document.getElementById('client-phone').value;
+                const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+                const newOrderRecord = {
+                    _id: 'PAY-' + Math.floor(100000 + Math.random() * 900000),
+                    clientEmail: session.email,
+                    clientName: session.name,
+                    shippingAddress: address,
+                    clientPhone: phone,
+                    paymentMethod: 'PayPal (Pagado - ID: ' + details.id + ')',
+                    items: order,
+                    total: total,
+                    status: 'Pendiente',
+                    createdAt: new Date().toISOString()
+                };
+
+                try {
+                    await fetch('http://localhost:5000/api/orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newOrderRecord)
+                    });
+                } catch (e) {
+                    console.log('Guardando orden localmente...');
+                }
+
+                // Guardar respaldo local de la orden
+                const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+                localOrders.push(newOrderRecord);
+                localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
+
+                alert(`¡Pago completado con éxito por ${details.payer.name.given_name}! Pedido registrado.`);
+                localStorage.removeItem('glam_saved_order');
+                updateOrderBadge();
+                renderOrderModalContent();
+                document.getElementById('order-modal').classList.add('hidden');
+            });
+        },
+        onError: (err) => {
+            console.error('Error en pasarela PayPal:', err);
+            alert('Ocurrió un error al procesar el pago con PayPal.');
+        }
+    }).render('#paypal-button-container');
 }
 
 function setupThemeToggle() {

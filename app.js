@@ -341,7 +341,6 @@ function setupAuthForm() {
                 alert(data.error || 'Ocurrió un error en la autenticación.');
             }
         } catch (err) {
-            // Modo local/estático simulado para autenticación si no hay servidor
             const dummyUser = { name: name || (email.includes('admin') ? 'Administrador' : 'Cliente'), email, role: email.includes('admin') ? 'admin' : 'client' };
             localStorage.setItem('glam_user_session', JSON.stringify(dummyUser));
             closeAuthModal();
@@ -380,7 +379,6 @@ function setupProductForm() {
             console.log('Guardando producto localmente...');
         }
 
-        // Respaldo local si no hay servidor
         const products = getStoredProducts();
         products.push(newProd);
         localStorage.setItem('glam_products', JSON.stringify(products));
@@ -440,7 +438,6 @@ function setupEditProductForm() {
             console.log('Actualizando producto localmente...');
         }
 
-        // Respaldo local si no hay servidor
         let products = getStoredProducts();
         products = products.map(p => (p._id === id || p.id == id) ? { ...p, ...updated } : p);
         localStorage.setItem('glam_products', JSON.stringify(products));
@@ -467,7 +464,6 @@ window.deleteProduct = async function(productId) {
         console.log('Eliminando producto localmente...');
     }
 
-    // Respaldo local si no hay servidor
     let products = getStoredProducts();
     products = products.filter(p => p._id !== productId && p.id != productId);
     localStorage.setItem('glam_products', JSON.stringify(products));
@@ -516,7 +512,6 @@ async function loadClientOrderHistory() {
         console.log('Cargando historial local...');
     }
 
-    // Respaldo local de pedidos
     const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
     cachedClientOrders = localOrders;
     renderOrdersList(localOrders, container);
@@ -655,7 +650,7 @@ window.downloadCatalogPDF = async function() {
             return;
         }
 
-        showToast('Generando catálogo visual en PDF...');
+        showToast('Preparando imágenes para el catálogo PDF...');
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -672,17 +667,31 @@ window.downloadCatalogPDF = async function() {
 
         const getBase64ImageFromURL = (url) => {
             return new Promise((resolve) => {
+                if (!url) {
+                    resolve(null);
+                    return;
+                }
+
                 const img = new Image();
                 img.crossOrigin = 'Anonymous';
+                
                 img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    resolve(canvas.toDataURL('image/jpeg'));
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width || 300;
+                        canvas.height = img.height || 300;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL('image/jpeg', 0.85));
+                    } catch (e) {
+                        resolve(null);
+                    }
                 };
-                img.onerror = () => resolve(null);
+
+                img.onerror = () => {
+                    resolve(null);
+                };
+
                 img.src = url;
             });
         };
@@ -718,7 +727,7 @@ window.downloadCatalogPDF = async function() {
                     try {
                         doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42);
                     } catch (e) {
-                        console.error("Error al pintar imagen en tarjeta", e);
+                        console.error("No se pudo renderizar la imagen en el PDF:", e);
                     }
                 }
             }
@@ -749,7 +758,7 @@ window.downloadCatalogPDF = async function() {
         }
 
         doc.save("Catalogo_Visual_GlamChic.pdf");
-        showToast('¡Catálogo visual en PDF generado con éxito!');
+        showToast('¡Catálogo visual con imágenes generado con éxito!');
 
     } catch (error) {
         console.error('Error al generar el PDF visual:', error);
@@ -877,7 +886,6 @@ window.loadAdminDashboardData = async function() {
         console.log('Cargando órdenes administrativas locales...');
     }
 
-    // Respaldo local de órdenes para admin
     const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
     cachedAdminOrders = localOrders;
     processAdminOrders(localOrders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody);
@@ -1135,7 +1143,6 @@ function renderPayPalButton() {
                     console.log('Guardando orden localmente...');
                 }
 
-                // Guardar respaldo local de la orden
                 const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
                 localOrders.push(newOrderRecord);
                 localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));

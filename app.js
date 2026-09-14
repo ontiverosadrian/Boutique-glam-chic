@@ -784,7 +784,7 @@ window.downloadCatalogPDF = async function() {
                         canvas.height = img.height || 300;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0);
-                        resolve(canvas.toDataURL('image/jpeg', 0.8));
+                        resolve(canvas.toDataURL('image/jpeg', 0.85));
                     } catch (e) {
                         resolve(null);
                     }
@@ -818,19 +818,26 @@ window.downloadCatalogPDF = async function() {
             doc.setDrawColor(230, 230, 230);
             doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'FD');
 
+            let imageLoaded = false;
             if (p.image) {
                 let base64Img = await getBase64ImageFromURL(p.image);
                 if (base64Img) {
                     try {
                         doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42);
+                        imageLoaded = true;
                     } catch (e) {
-                        doc.setFillColor(245, 245, 245);
-                        doc.rect(x, y, cardWidth, 42, 'F');
+                        imageLoaded = false;
                     }
-                } else {
-                    doc.setFillColor(245, 245, 245);
-                    doc.rect(x, y, cardWidth, 42, 'F');
                 }
+            }
+
+            if (!imageLoaded) {
+                doc.setFillColor(252, 231, 243);
+                doc.rect(x, y, cardWidth, 42, 'F');
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.setTextColor(219, 39, 119);
+                doc.text("Glam Chic", x + (cardWidth / 2), y + 23, { align: "center" });
             }
 
             doc.setFillColor(30, 30, 30);

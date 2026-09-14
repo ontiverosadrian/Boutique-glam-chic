@@ -1088,7 +1088,6 @@ window.confirmCashOrder = async function() {
     const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
     const newOrderRecord = {
-        _id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
         clientEmail: session.email,
         clientName: session.name,
         shippingAddress: address,
@@ -1101,20 +1100,26 @@ window.confirmCashOrder = async function() {
     };
 
     try {
-        await fetch(`${API_URL}/api/orders`, {
+        const response = await fetch(`${API_URL}/api/orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newOrderRecord)
         });
+
+        if (!response.ok) {
+            throw new Error('Error al registrar en MongoDB');
+        }
+
+        const savedData = await response.json();
+        console.log('Pedido guardado exitosamente en MongoDB:', savedData);
     } catch (e) {
-        console.log('Guardando pedido localmente...');
+        console.log('Guardando pedido de respaldo localmente:', e);
+        let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+        localOrders.push({ ...newOrderRecord, _id: 'ORD-' + Math.floor(100000 + Math.random() * 900000) });
+        localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
     }
 
-    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    localOrders.push(newOrderRecord);
-    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
-
-    alert('¡Pedido confirmado con éxito! Ya se encuentra disponible en tu historial y en el panel de administración.');
+    alert('¡Pedido confirmado con éxito! Ya se encuentra registrado en el sistema y en tu dashboard.');
     localStorage.removeItem('glam_saved_order');
     updateOrderBadge();
     renderOrderModalContent();
@@ -1253,7 +1258,6 @@ function renderPayPalButton() {
                 const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
                 const newOrderRecord = {
-                    _id: 'PAY-' + Math.floor(100000 + Math.random() * 900000),
                     clientEmail: session.email,
                     clientName: session.name,
                     shippingAddress: address,
@@ -1272,10 +1276,6 @@ function renderPayPalButton() {
                         body: JSON.stringify(newOrderRecord)
                     });
                 } catch (e) {}
-
-                let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-                localOrders.push(newOrderRecord);
-                localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
 
                 alert(`¡Pago completado con éxito! Pedido registrado.`);
                 localStorage.removeItem('glam_saved_order');

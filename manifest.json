@@ -8,14 +8,14 @@
   "description": "Moda y Accesorios Exclusivos",
   "icons": [
     {
-      "src": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=192&h=192&fit=crop&q=80",
-      "sizes": "192x192",
-      "type": "image/jpeg"
+      "src": "images/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
     },
     {
-      "src": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=512&h=512&fit=crop&q=80",
-      "sizes": "512x512",
-      "type": "image/jpeg"
+      "src": "images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
     }
   ]
 }

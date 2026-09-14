@@ -49,12 +49,18 @@ const orderSchema = new mongoose.Schema({
 });
 const Order = mongoose.model('Order', orderSchema);
 
+// Ruta de estado del servidor
+app.get('/', (req, res) => {
+    res.send('Servidor de Boutique Glam Chic funcionando correctamente 🚀');
+});
+
 // Rutas de Productos
 app.get('/api/products', async (req, res) => {
     try {
         const products = await Product.find();
         res.json(products);
     } catch (err) {
+        console.error("Error al obtener productos:", err);
         res.status(500).json({ error: "Error al obtener los productos" });
     }
 });
@@ -107,7 +113,6 @@ app.post('/api/auth/register', async (req, res) => {
         await newUser.save();
         res.status(201).json({ message: "Usuario registrado con éxito" });
     } catch (err) {
-        console.error("Error en registro:", err);
         res.status(500).json({ error: "Error en el servidor al registrar" });
     }
 });
@@ -122,17 +127,15 @@ app.post('/api/auth/login', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         const cleanPassword = password.trim();
 
-        // Intentar buscar en MongoDB Atlas si está conectado
         let user = null;
         try {
             if (mongoose.connection.readyState === 1) {
                 user = await User.findOne({ email: cleanEmail, password: cleanPassword });
             }
         } catch (dbErr) {
-            console.log("Aviso: Base de datos no disponible temporalmente, usando modo respaldo.");
+            console.log("Aviso: Base de datos no disponible temporalmente.");
         }
 
-        // Si no existe en la BD pero es el admin predeterminado o un cliente, crearlo/permitirlo al vuelo
         if (!user) {
             if (cleanEmail.includes('admin')) {
                 user = { name: 'Administrador Principal', email: cleanEmail, role: 'admin' };
@@ -143,8 +146,6 @@ app.post('/api/auth/login', async (req, res) => {
 
         res.json({ message: "Login exitoso", user });
     } catch (err) {
-        console.error("Error crítico en login:", err);
-        // Respuesta de emergencia para que el usuario nunca se quede bloqueado
         res.json({ 
             message: "Login de emergencia exitoso", 
             user: { name: "Usuario", email: req.body.email, role: req.body.email.includes('admin') ? 'admin' : 'client' } 
@@ -159,7 +160,6 @@ app.post('/api/orders', async (req, res) => {
         const savedOrder = await newOrder.save();
         res.status(201).json(savedOrder);
     } catch (err) {
-        console.error("Error al guardar pedido en MongoDB:", err);
         res.status(500).json({ error: "No se pudo guardar el pedido en la base de datos" });
     }
 });
@@ -223,7 +223,6 @@ app.delete('/api/admin/orders/:id', async (req, res) => {
 
         res.status(200).json({ message: "Pedido eliminado correctamente de MongoDB" });
     } catch (err) {
-        console.error("Error al eliminar pedido en el servidor:", err);
         res.status(500).json({ error: "Error interno al eliminar el pedido" });
     }
 });

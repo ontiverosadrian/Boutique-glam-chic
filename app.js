@@ -389,6 +389,7 @@ function sendWelcomeEmail(userData) {
     const templateParams = {
         name: userData.name || 'Cliente',
         email: userData.email,
+        link: 'https://boquite-glam-chic.netlify.app',
         date: new Date().toLocaleString()
     };
 
@@ -944,7 +945,7 @@ window.loadAdminDashboardData = async function() {
 function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody) {
     const totalOrdersCount = orders.length;
     const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-    const pendingCount = orders.filter(order => order.status === 'Pendiente').length;
+    const pendingCount = orders.filter(order => order.status === 'Pendiente' || !order.status).length;
 
     if (totalSalesEl) totalSalesEl.textContent = `$${totalRevenue.toFixed(2)}`;
     if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersCount;
@@ -961,6 +962,13 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
     orders.forEach(order => {
         const orderId = order._id || order.id;
         const itemsSummary = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+        const currentStatus = order.status || 'Pendiente';
+
+        let statusBg = 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
+        if (currentStatus === 'Pagado') statusBg = 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
+        if (currentStatus === 'Enviado') statusBg = 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300';
+        if (currentStatus === 'Entregado') statusBg = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300';
+
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
         tr.innerHTML = `
@@ -975,11 +983,41 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
                 <p><strong>Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
             </td>
             <td class="p-4 font-bold text-gray-900 dark:text-white">$${order.total.toFixed(2)}</td>
-            <td class="p-4"><span class="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">${order.status || 'Pendiente'}</span></td>
+            <td class="p-4">
+                <select onchange="updateOrderStatus('${orderId}', this.value)" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-gray-200 dark:border-gray-700 ${statusBg} focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
+                    <option value="Pendiente" ${currentStatus === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                    <option value="Pagado" ${currentStatus === 'Pagado' ? 'selected' : ''}>Pagado</option>
+                    <option value="Enviado" ${currentStatus === 'Enviado' ? 'selected' : ''}>Enviado</option>
+                    <option value="Entregado" ${currentStatus === 'Entregado' ? 'selected' : ''}>Entregado</option>
+                </select>
+            </td>
         `;
         tableBody.appendChild(tr);
     });
 }
+
+window.updateOrderStatus = async function(orderId, newStatus) {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (response.ok) {
+            showToast(`¡Estatus actualizado a "${newStatus}"!`);
+            loadAdminDashboardData();
+            return;
+        }
+    } catch (e) {
+        console.log('Actualizando estatus localmente...');
+    }
+
+    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+    localOrders = localOrders.map(o => (o._id === orderId || o.id == orderId) ? { ...o, status: newStatus } : o);
+    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
+    showToast(`¡Estatus actualizado localmente a "${newStatus}"!`);
+    loadAdminDashboardData();
+};
 
 window.exportOrdersToExcel = function() {
     if (!cachedAdminOrders || cachedAdminOrders.length === 0) { alert('No hay pedidos.'); return; }

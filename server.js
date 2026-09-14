@@ -49,19 +49,22 @@ const orderSchema = new mongoose.Schema({
 });
 const Order = mongoose.model('Order', orderSchema);
 
-// Ruta de estado del servidor
+// Ruta de estado
 app.get('/', (req, res) => {
     res.send('Servidor de Boutique Glam Chic funcionando correctamente 🚀');
 });
 
-// Rutas de Productos
+// Rutas de Productos (Protegidas contra Error 500)
 app.get('/api/products', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.json([]);
+        }
         const products = await Product.find();
         res.json(products);
     } catch (err) {
         console.error("Error al obtener productos:", err);
-        res.status(500).json({ error: "Error al obtener los productos" });
+        res.json([]);
     }
 });
 

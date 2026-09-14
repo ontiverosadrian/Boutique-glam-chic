@@ -1,4 +1,3 @@
-// Definición automática de la URL de la API (Local en tu PC vs Nube en Render)
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
     : 'https://boutique-glam-chic.onrender.com';
@@ -28,13 +27,11 @@ async function initializeApp() {
 }
 
 async function fetchAndRenderProducts() {
-    // 1. Cargar y mostrar inmediatamente lo que hay en local para que la página vuele al abrir
     let local = JSON.parse(localStorage.getItem('glam_products'));
     if (local && local.length > 0) {
         renderCatalog(local);
         renderAdminProductsTable(local);
     } else {
-        // Respaldo inicial por defecto
         local = [
             { name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables." }
         ];
@@ -42,7 +39,6 @@ async function fetchAndRenderProducts() {
         renderAdminProductsTable(local);
     }
 
-    // 2. Consultar MongoDB en segundo plano (sin bloquear la interfaz)
     try {
         const response = await fetch(`${API_URL}/api/products`);
         if (response.ok) {

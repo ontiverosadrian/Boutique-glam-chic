@@ -1,21 +1,21 @@
 {
-  "name": "Boutique Glam Chic - Catálogo Digital",
+  "name": "Boutique Glam Chic",
   "short_name": "Glam Chic",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#fff1f2",
+  "background_color": "#030712",
   "theme_color": "#db2777",
+  "description": "Moda y Accesorios Exclusivos",
   "icons": [
     {
-      "src": "./images/icon-192.png",
+      "src": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=192&h=192&fit=crop&q=80",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/jpeg"
     },
     {
-      "src": "./images/icon-512.png",
+      "src": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=512&h=512&fit=crop&q=80",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/jpeg"
     }
   ]
 }

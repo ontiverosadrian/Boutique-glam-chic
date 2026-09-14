@@ -1274,7 +1274,7 @@ function renderPayPalButton() {
                 const session = JSON.parse(localStorage.getItem('glam_user_session'));
                 const address = document.getElementById('shipping-address').value;
                 const phone = document.getElementById('client-phone').value;
-                const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const total = order.reduced((sum, item) => sum + (item.price * item.quantity), 0);
 
                 const newOrderRecord = {
                     clientEmail: session.email,

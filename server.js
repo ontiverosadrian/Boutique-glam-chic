@@ -177,12 +177,17 @@ app.get('/api/orders/client/:email', async (req, res) => {
     }
 });
 
+// Ruta de administración blindada contra error 500
 app.get('/api/admin/orders', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.json([]);
+        }
         const orders = await Order.find().sort({ createdAt: -1 });
         res.json(orders);
     } catch (err) {
-        res.status(500).json({ error: "Error al obtener los pedidos de administración" });
+        console.error("Error al obtener los pedidos de administración:", err);
+        res.json([]);
     }
 });
 

@@ -1054,7 +1054,23 @@ window.updateOrderStatus = async function(orderId, newStatus) {
 };
 
 window.deleteAdminOrder = async function(orderId) {
-    if (!confirm(`¿Estás segura de eliminar el pedido ${orderId}?`)) return;
+    if (!confirm(`¿Estás seguro de eliminar permanentemente el pedido ${orderId} de la base de datos en MongoDB?`)) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('No se pudo eliminar el registro en la base de datos remota');
+        }
+
+        showToast('¡Pedido eliminado de MongoDB exitosamente!');
+    } catch (e) {
+        console.log('Error de red al intentar eliminar en la nube:', e);
+        alert('No se pudo conectar con el servidor para eliminar el registro de la base de datos.');
+        return;
+    }
 
     if (cachedAdminOrders) {
         cachedAdminOrders = cachedAdminOrders.filter(o => String(o._id || o.id) !== String(orderId));
@@ -1064,18 +1080,6 @@ window.deleteAdminOrder = async function(orderId) {
     localOrders = localOrders.filter(o => String(o._id || o.id) !== String(orderId));
     localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
 
-    try {
-        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
-            method: 'DELETE'
-        });
-        if (!response.ok) {
-            console.log('No se pudo eliminar en el servidor remoto, pero se limpió localmente.');
-        }
-    } catch (e) {
-        console.log('Error de red al intentar eliminar en la nube.');
-    }
-
-    showToast('Pedido eliminado correctamente.');
     loadAdminDashboardData();
 };
 

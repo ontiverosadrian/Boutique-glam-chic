@@ -28,36 +28,34 @@ async function initializeApp() {
 }
 
 async function fetchAndRenderProducts() {
-    try {
-        const response = await fetch(`${API_URL}/api/products`);
-        if (!response.ok) {
-            throw new Error('Error al conectar con la API de productos');
-        }
-        const products = await response.json();
-        
-        // Si MongoDB devuelve productos, sobrescribimos COMPLETAMENTE el localStorage para forzar los nuevos datos
-        if (Array.isArray(products) && products.length > 0) {
-            localStorage.setItem('glam_products', JSON.stringify(products));
-            renderCatalog(products);
-            renderAdminProductsTable(products);
-            console.log(`✅ Se cargaron y sincronizaron ${products.length} productos desde MongoDB Atlas.`);
-            return;
-        }
-    } catch (err) {
-        console.log('⚠️ No se pudo conectar a la base de datos, usando respaldo local:', err);
+    // 1. Cargar y mostrar inmediatamente lo que hay en local para que la página vuele al abrir
+    let local = JSON.parse(localStorage.getItem('glam_products'));
+    if (local && local.length > 0) {
+        renderCatalog(local);
+        renderAdminProductsTable(local);
+    } else {
+        // Respaldo inicial por defecto
+        local = [
+            { name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables." }
+        ];
+        renderCatalog(local);
+        renderAdminProductsTable(local);
     }
 
-    // Respaldo por si falla la red
-    let local = JSON.parse(localStorage.getItem('glam_products'));
-    if (!local || local.length === 0) {
-        local = [
-            { name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables." },
-            { name: "Bolso de Mano Elegante", category: "Accesorios", price: 549.00, image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=60", description: "Bolso compacto con detalles metálicos dorados." }
-        ];
-        localStorage.setItem('glam_products', JSON.stringify(local));
+    // 2. Consultar MongoDB en segundo plano (sin bloquear la interfaz)
+    try {
+        const response = await fetch(`${API_URL}/api/products`);
+        if (response.ok) {
+            const products = await response.json();
+            if (Array.isArray(products) && products.length > 0) {
+                localStorage.setItem('glam_products', JSON.stringify(products));
+                renderCatalog(products);
+                renderAdminProductsTable(products);
+            }
+        }
+    } catch (err) {
+        console.log('Modo offline activo o servidor despertando.');
     }
-    renderCatalog(local);
-    renderAdminProductsTable(local);
 }
 
 function getStoredProducts() {

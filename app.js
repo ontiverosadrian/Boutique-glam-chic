@@ -342,11 +342,17 @@ function setupAuthForm() {
         const password = document.getElementById('auth-password').value;
         const name = document.getElementById('auth-name').value;
 
+        // Separamos correctamente la ruta según sea Registro o Login
+        const endpoint = isRegistering ? `${API_URL}/api/auth/register` : `${API_URL}/api/auth/login`;
+        const payload = isRegistering 
+            ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' }
+            : { email, password };
+
         try {
-            const response = await fetch(`${API_URL}/api/auth/login`, {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(isRegistering ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' } : { email, password })
+                body: JSON.stringify(payload)
             });
             const data = await response.json();
 
@@ -368,11 +374,14 @@ function setupAuthForm() {
             const dummyUser = { name: name || (email.includes('admin') ? 'Administrador' : 'Cliente'), email, role: email.includes('admin') ? 'admin' : 'client' };
             if (isRegistering) {
                 sendWelcomeEmail({ name: dummyUser.name, email: dummyUser.email });
+                alert('¡Registro local exitoso! Te hemos enviado un correo de bienvenida.');
+                toggleAuthMode();
+            } else {
+                localStorage.setItem('glam_user_session', JSON.stringify(dummyUser));
+                closeAuthModal();
+                checkUserSession();
+                showToast(`¡Bienvenido, ${dummyUser.name}!`);
             }
-            localStorage.setItem('glam_user_session', JSON.stringify(dummyUser));
-            closeAuthModal();
-            checkUserSession();
-            showToast(`¡Bienvenido, ${dummyUser.name}!`);
         }
     });
 }

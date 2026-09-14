@@ -1042,20 +1042,23 @@ window.updateOrderStatus = async function(orderId, newStatus) {
 window.deleteAdminOrder = async function(orderId) {
     if (!confirm(`¿Estás segura de eliminar el pedido ${orderId}?`)) return;
 
-    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    localOrders = localOrders.filter(o => o._id !== orderId && String(o.id) !== String(orderId));
-    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
-
     if (cachedAdminOrders) {
-        cachedAdminOrders = cachedAdminOrders.filter(o => o._id !== orderId && String(o.id) !== String(orderId));
+        cachedAdminOrders = cachedAdminOrders.filter(o => String(o._id || o.id) !== String(orderId));
     }
 
+    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+    localOrders = localOrders.filter(o => String(o._id || o.id) !== String(orderId));
+    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
+
     try {
-        await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
+        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
             method: 'DELETE'
         });
+        if (!response.ok) {
+            console.log('No se pudo eliminar en el servidor remoto, pero se limpió localmente.');
+        }
     } catch (e) {
-        console.log('Eliminación en la nube pendiente, removido localmente.');
+        console.log('Error de red al intentar eliminar en la nube.');
     }
 
     showToast('Pedido eliminado correctamente.');

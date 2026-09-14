@@ -757,7 +757,7 @@ window.downloadCatalogPDF = async function() {
             return;
         }
 
-        showToast('Preparando imágenes para el catálogo PDF...');
+        showToast('Generando catálogo PDF...');
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -776,7 +776,7 @@ window.downloadCatalogPDF = async function() {
             return new Promise((resolve) => {
                 if (!url) { resolve(null); return; }
                 const img = new Image();
-                img.crossOrigin = 'Anonymous';
+                img.crossOrigin = 'anonymous';
                 img.onload = () => {
                     try {
                         const canvas = document.createElement('canvas');
@@ -784,8 +784,10 @@ window.downloadCatalogPDF = async function() {
                         canvas.height = img.height || 300;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0);
-                        resolve(canvas.toDataURL('image/jpeg', 0.85));
-                    } catch (e) { resolve(null); }
+                        resolve(canvas.toDataURL('image/jpeg', 0.8));
+                    } catch (e) {
+                        resolve(null);
+                    }
                 };
                 img.onerror = () => resolve(null);
                 img.src = url;
@@ -819,7 +821,15 @@ window.downloadCatalogPDF = async function() {
             if (p.image) {
                 let base64Img = await getBase64ImageFromURL(p.image);
                 if (base64Img) {
-                    try { doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42); } catch (e) {}
+                    try {
+                        doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42);
+                    } catch (e) {
+                        doc.setFillColor(245, 245, 245);
+                        doc.rect(x, y, cardWidth, 42, 'F');
+                    }
+                } else {
+                    doc.setFillColor(245, 245, 245);
+                    doc.rect(x, y, cardWidth, 42, 'F');
                 }
             }
 

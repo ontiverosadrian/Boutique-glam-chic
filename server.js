@@ -5,14 +5,10 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Configuración de Middlewares
 app.use(cors());
 app.use(express.json());
 
-// ==========================================
-// CONEXIÓN A MONGODB ATLAS
-// ==========================================
-const MONGO_URI = process.env.MONGO_URI || "TU_URI_DE_MONGODB_ATLAS_AQUI"; // Reemplaza o usa variable de entorno en Render
+const MONGO_URI = process.env.MONGO_URI || "TU_URI_DE_MONGODB_ATLAS_AQUI";
 
 mongoose.connect(MONGO_URI, {
     useNewUrlParser: true,
@@ -21,11 +17,7 @@ mongoose.connect(MONGO_URI, {
 .then(() => console.log('✅ Conectado exitosamente a MongoDB Atlas'))
 .catch(err => console.error('❌ Error al conectar a MongoDB Atlas:', err));
 
-// ==========================================
-// MODELOS DE MOONGOSE (Schemas)
-// ==========================================
-
-// 1. Modelo de Producto
+// Esquemas y Modelos
 const productSchema = new mongoose.Schema({
     id: String,
     name: { type: String, required: true },
@@ -36,16 +28,14 @@ const productSchema = new mongoose.Schema({
 });
 const Product = mongoose.model('Product', productSchema);
 
-// 2. Modelo de Usuario
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, default: 'client' } // 'admin' o 'client'
+    role: { type: String, default: 'client' }
 });
 const User = mongoose.model('User', userSchema);
 
-// 3. Modelo de Pedido (Order)
 const orderSchema = new mongoose.Schema({
     clientEmail: { type: String, required: true },
     clientName: { type: String, required: true },
@@ -59,12 +49,7 @@ const orderSchema = new mongoose.Schema({
 });
 const Order = mongoose.model('Order', orderSchema);
 
-
-// ==========================================
-// RUTAS DE LA API
-// ==========================================
-
-// --- RUTAS DE PRODUCTOS ---
+// Rutas de Productos
 app.get('/api/products', async (req, res) => {
     try {
         const products = await Product.find();
@@ -110,8 +95,7 @@ app.delete('/api/admin/products/:id', async (req, res) => {
     }
 });
 
-
-// --- RUTAS DE AUTENTICACIÓN ---
+// Rutas de Autenticación
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
@@ -123,6 +107,7 @@ app.post('/api/auth/register', async (req, res) => {
         await newUser.save();
         res.status(201).json({ message: "Usuario registrado con éxito" });
     } catch (err) {
+        console.error("Error en registro:", err);
         res.status(500).json({ error: "Error en el servidor al registrar" });
     }
 });
@@ -130,20 +115,22 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email, password });
+        if (!email || !password) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+
+        const user = await User.findOne({ email: email.trim().toLowerCase(), password: password.trim() });
         if (!user) {
-            return res.status(400).json({ error: "Credenciales incorrectas" });
+            return res.status(400).json({ error: "Correo o contraseña incorrectos" });
         }
         res.json({ message: "Login exitoso", user });
     } catch (err) {
-        res.status(500).json({ error: "Error en el servidor al iniciar sesión" });
+        console.error("Error crítico en login:", err);
+        res.status(500).json({ error: "Error interno en el servidor al iniciar sesión" });
     }
 });
 
-
-// --- RUTAS DE PEDIDOS (ORDERS) ---
-
-// 1. Crear un pedido nuevo desde el checkout del cliente
+// Rutas de Pedidos
 app.post('/api/orders', async (req, res) => {
     try {
         const newOrder = new Order(req.body);
@@ -155,7 +142,6 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
-// 2. Obtener los pedidos de un cliente específico por su correo
 app.get('/api/orders/client/:email', async (req, res) => {
     try {
         const email = req.params.email;
@@ -166,7 +152,6 @@ app.get('/api/orders/client/:email', async (req, res) => {
     }
 });
 
-// 3. Obtener todos los pedidos para el panel de administración
 app.get('/api/admin/orders', async (req, res) => {
     try {
         const orders = await Order.find().sort({ createdAt: -1 });
@@ -176,7 +161,6 @@ app.get('/api/admin/orders', async (req, res) => {
     }
 });
 
-// 4. Actualizar el estatus de un pedido
 app.put('/api/admin/orders/:id/status', async (req, res) => {
     try {
         const orderId = req.params.id;
@@ -196,18 +180,15 @@ app.put('/api/admin/orders/:id/status', async (req, res) => {
     }
 });
 
-// 5. ELIMINAR UN PEDIDO PERMANENTEMENTE DE MONGODB (Conexión con el botón del Admin)
 app.delete('/api/admin/orders/:id', async (req, res) => {
     try {
         const orderId = req.params.id;
         let deletedOrder = null;
 
-        // Intentar eliminar por _id estándar de Mongoose/MongoDB (si tiene 24 caracteres hex)
         if (orderId.match(/^[0-9a-fA-F]{24}$/)) {
             deletedOrder = await Order.findByIdAndDelete(orderId);
         }
 
-        // Si no se encontró, buscar directamente por el campo id o _id como string
         if (!deletedOrder) {
             deletedOrder = await Order.findOneAndDelete({ 
                 $or: [{ _id: orderId }, { id: orderId }] 
@@ -225,7 +206,6 @@ app.delete('/api/admin/orders/:id', async (req, res) => {
     }
 });
 
-// Iniciar servidor
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });

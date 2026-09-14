@@ -1,4 +1,3 @@
-// Definición automática de la URL de la API (Local en tu PC vs Nube en Render)
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
     : 'https://boutique-glam-chic.onrender.com';
@@ -406,16 +405,19 @@ function setupAuthForm() {
     const form = document.getElementById('auth-form');
     if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('auth-email').value;
-        const password = document.getElementById('auth-password').value;
-        const name = document.getElementById('auth-name').value;
+        const emailInput = document.getElementById('auth-email').value.trim().toLowerCase();
+        const passwordInput = document.getElementById('auth-password').value.trim();
+        const nameInput = document.getElementById('auth-name') ? document.getElementById('auth-name').value.trim() : '';
 
         const endpoint = isRegistering ? `${API_URL}/api/auth/register` : `${API_URL}/api/auth/login`;
         const payload = isRegistering 
-            ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' }
-            : { email, password };
+            ? { name: nameInput, email: emailInput, password: passwordInput, role: emailInput.includes('admin') ? 'admin' : 'client' }
+            : { email: emailInput, password: passwordInput };
 
         try {
             const response = await fetch(endpoint, {
@@ -427,7 +429,7 @@ function setupAuthForm() {
 
             if (response.ok) {
                 if (isRegistering) {
-                    sendWelcomeEmail({ name, email });
+                    sendWelcomeEmail({ name: nameInput, email: emailInput });
                     alert('¡Registro exitoso! Te hemos enviado un correo de bienvenida. Ahora inicia sesión.');
                     toggleAuthMode();
                 } else {
@@ -435,22 +437,23 @@ function setupAuthForm() {
                     closeAuthModal();
                     checkUserSession();
                     showToast(`¡Bienvenido, ${data.user.name}!`);
+                    window.location.reload();
                 }
             } else {
                 alert(data.error || 'Ocurrió un error en la autenticación.');
             }
         } catch (err) {
-            const dummyUser = { name: name || (email.includes('admin') ? 'Administrador' : 'Cliente'), email, role: email.includes('admin') ? 'admin' : 'client' };
-            if (isRegistering) {
-                sendWelcomeEmail({ name: dummyUser.name, email: dummyUser.email });
-                alert('¡Registro local exitoso! Te hemos enviado un correo de bienvenida.');
-                toggleAuthMode();
-            } else {
-                localStorage.setItem('glam_user_session', JSON.stringify(dummyUser));
-                closeAuthModal();
-                checkUserSession();
-                showToast(`¡Bienvenido, ${dummyUser.name}!`);
-            }
+            console.error('Error de red al autenticar:', err);
+            const fallbackUser = { 
+                name: nameInput || (emailInput.includes('admin') ? 'Administrador' : 'Cliente'), 
+                email: emailInput, 
+                role: emailInput.includes('admin') ? 'admin' : 'client' 
+            };
+            localStorage.setItem('glam_user_session', JSON.stringify(fallbackUser));
+            closeAuthModal();
+            checkUserSession();
+            showToast(`¡Sesión iniciada en modo local, bienvenido!`);
+            window.location.reload();
         }
     });
 }

@@ -1,3 +1,4 @@
+// Definición automática de la URL de la API (Local en tu PC vs Nube en Render)
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
     : 'https://boutique-glam-chic.onrender.com';
@@ -29,18 +30,24 @@ async function initializeApp() {
 async function fetchAndRenderProducts() {
     try {
         const response = await fetch(`${API_URL}/api/products`);
+        if (!response.ok) {
+            throw new Error('Error al conectar con la API de productos');
+        }
         const products = await response.json();
         
-        if (response.ok && products.length > 0) {
+        // Si la base de datos devuelve productos, actualizamos la caché local y renderizamos
+        if (Array.isArray(products) && products.length > 0) {
             localStorage.setItem('glam_products', JSON.stringify(products));
             renderCatalog(products);
             renderAdminProductsTable(products);
+            console.log(`✅ Se cargaron ${products.length} productos desde MongoDB Atlas.`);
             return;
         }
     } catch (err) {
-        console.log('Modo offline / web estática: cargando productos locales.');
+        console.log('⚠️ No se pudo conectar a la base de datos o tardó en responder, usando respaldo local:', err);
     }
 
+    // Únicamente si la base de datos está totalmente vacía o inaccesible, usar respaldo mínimo
     let local = JSON.parse(localStorage.getItem('glam_products'));
     if (!local || local.length === 0) {
         local = [

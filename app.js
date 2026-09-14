@@ -35,19 +35,19 @@ async function fetchAndRenderProducts() {
         }
         const products = await response.json();
         
-        // Si la base de datos devuelve productos, actualizamos la caché local y renderizamos
+        // Si MongoDB devuelve productos, sobrescribimos COMPLETAMENTE el localStorage para forzar los nuevos datos
         if (Array.isArray(products) && products.length > 0) {
             localStorage.setItem('glam_products', JSON.stringify(products));
             renderCatalog(products);
             renderAdminProductsTable(products);
-            console.log(`✅ Se cargaron ${products.length} productos desde MongoDB Atlas.`);
+            console.log(`✅ Se cargaron y sincronizaron ${products.length} productos desde MongoDB Atlas.`);
             return;
         }
     } catch (err) {
-        console.log('⚠️ No se pudo conectar a la base de datos o tardó en responder, usando respaldo local:', err);
+        console.log('⚠️ No se pudo conectar a la base de datos, usando respaldo local:', err);
     }
 
-    // Únicamente si la base de datos está totalmente vacía o inaccesible, usar respaldo mínimo
+    // Respaldo por si falla la red
     let local = JSON.parse(localStorage.getItem('glam_products'));
     if (!local || local.length === 0) {
         local = [

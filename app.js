@@ -23,7 +23,6 @@ async function initializeApp() {
     setupAuthForm();
     setupChatbot();
     monitorConnection();
-    registerServiceWorker();
 }
 
 async function fetchAndRenderProducts() {
@@ -41,7 +40,6 @@ async function fetchAndRenderProducts() {
         console.log('Modo offline / web estática: cargando productos locales.');
     }
 
-    // Respaldo por defecto y local para cuando falle la red
     let local = JSON.parse(localStorage.getItem('glam_products'));
     if (!local || local.length === 0) {
         local = [
@@ -273,7 +271,7 @@ function checkUserSession() {
         }
     } else {
         container.innerHTML = `
-            <button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors flex items-center space-x-2">
+            <button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors flex items-center space-x-2">
                 <i class="fas fa-user"></i> <span class="hidden sm:inline">Iniciar Sesión</span>
             </button>
         `;
@@ -314,6 +312,26 @@ window.logoutUser = function() {
     window.location.reload();
 }
 
+// Función para enviar correo de bienvenida con EmailJS
+function sendWelcomeEmail(userData) {
+    const SERVICE_ID = "service_wv8zvlk";
+    const TEMPLATE_ID = "template_gm5inic";
+
+    const templateParams = {
+        name: userData.name || 'Cliente',
+        email: userData.email,
+        date: new Date().toLocaleString()
+    };
+
+    emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams)
+        .then((response) => {
+            console.log('Correo de bienvenida enviado con éxito!', response.status, response.text);
+            showToast('¡Correo de bienvenida enviado a tu bandeja!');
+        }, (err) => {
+            console.error('Error al enviar el correo de bienvenida:', err);
+        });
+}
+
 function setupAuthForm() {
     const form = document.getElementById('auth-form');
     if (!form) return;
@@ -334,7 +352,8 @@ function setupAuthForm() {
 
             if (response.ok) {
                 if (isRegistering) {
-                    alert('¡Registro exitoso! Ahora inicia sesión.');
+                    sendWelcomeEmail({ name, email });
+                    alert('¡Registro exitoso! Te hemos enviado un correo de bienvenida. Ahora inicia sesión.');
                     toggleAuthMode();
                 } else {
                     localStorage.setItem('glam_user_session', JSON.stringify(data.user));
@@ -347,6 +366,9 @@ function setupAuthForm() {
             }
         } catch (err) {
             const dummyUser = { name: name || (email.includes('admin') ? 'Administrador' : 'Cliente'), email, role: email.includes('admin') ? 'admin' : 'client' };
+            if (isRegistering) {
+                sendWelcomeEmail({ name: dummyUser.name, email: dummyUser.email });
+            }
             localStorage.setItem('glam_user_session', JSON.stringify(dummyUser));
             closeAuthModal();
             checkUserSession();
@@ -647,13 +669,13 @@ window.downloadClientTicket = function(orderId) {
 window.downloadCatalogPDF = async function() {
     try {
         if (!window.jspdf || !window.jspdf.jsPDF) {
-            alert('La librería jsPDF aún no se ha cargado. Revisa tu conexión a internet.');
+            alert('La librería jsPDF aún no se ha cargado.');
             return;
         }
 
         const products = getStoredProducts();
         if (!products || products.length === 0) {
-            alert('No hay productos disponibles en el catálogo para exportar.');
+            alert('No hay productos disponibles.');
             return;
         }
 
@@ -674,14 +696,9 @@ window.downloadCatalogPDF = async function() {
 
         const getBase64ImageFromURL = (url) => {
             return new Promise((resolve) => {
-                if (!url) {
-                    resolve(null);
-                    return;
-                }
-
+                if (!url) { resolve(null); return; }
                 const img = new Image();
                 img.crossOrigin = 'Anonymous';
-                
                 img.onload = () => {
                     try {
                         const canvas = document.createElement('canvas');
@@ -690,15 +707,9 @@ window.downloadCatalogPDF = async function() {
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0);
                         resolve(canvas.toDataURL('image/jpeg', 0.85));
-                    } catch (e) {
-                        resolve(null);
-                    }
+                    } catch (e) { resolve(null); }
                 };
-
-                img.onerror = () => {
-                    resolve(null);
-                };
-
+                img.onerror = () => resolve(null);
                 img.src = url;
             });
         };
@@ -713,7 +724,6 @@ window.downloadCatalogPDF = async function() {
 
         for (let i = 0; i < products.length; i++) {
             const p = products[i];
-
             if (startY + cardHeight > 275) {
                 doc.addPage();
                 startY = 20;
@@ -731,11 +741,7 @@ window.downloadCatalogPDF = async function() {
             if (p.image) {
                 let base64Img = await getBase64ImageFromURL(p.image);
                 if (base64Img) {
-                    try {
-                        doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42);
-                    } catch (e) {
-                        console.error("No se pudo renderizar la imagen en el PDF:", e);
-                    }
+                    try { doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42); } catch (e) {}
                 }
             }
 
@@ -765,11 +771,9 @@ window.downloadCatalogPDF = async function() {
         }
 
         doc.save("Catalogo_Visual_GlamChic.pdf");
-        showToast('¡Catálogo visual con imágenes generado con éxito!');
-
+        showToast('¡Catálogo visual generado con éxito!');
     } catch (error) {
         console.error('Error al generar el PDF visual:', error);
-        alert('Ocurrió un error al generar el PDF visual.');
     }
 };
 
@@ -782,21 +786,14 @@ function setupChatbot() {
 
     if (!toggleBtn || !windowEl) return;
 
-    toggleBtn.addEventListener('click', () => {
-        windowEl.classList.toggle('hidden');
-    });
-
-    closeBtn.addEventListener('click', () => {
-        windowEl.classList.add('hidden');
-    });
+    toggleBtn.addEventListener('click', () => windowEl.classList.toggle('hidden'));
+    closeBtn.addEventListener('click', () => windowEl.classList.add('hidden'));
 
     const handleUserMessage = () => {
         const text = inputEl.value.trim();
         if (!text) return;
-
         appendChatMessage(text, 'user');
         inputEl.value = '';
-
         setTimeout(() => {
             const botReply = generateBotResponse(text);
             appendChatMessage(botReply, 'bot');
@@ -804,9 +801,7 @@ function setupChatbot() {
     };
 
     sendBtn.addEventListener('click', handleUserMessage);
-    inputEl.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleUserMessage();
-    });
+    inputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleUserMessage(); });
 }
 
 function appendChatMessage(text, sender) {
@@ -816,20 +811,14 @@ function appendChatMessage(text, sender) {
     const div = document.createElement('div');
     if (sender === 'user') {
         div.className = 'flex items-end justify-end space-x-2';
-        div.innerHTML = `
-            <div class="bg-pink-600 text-white p-3 rounded-2xl shadow-sm max-w-[80%]">
-                ${text}
-            </div>
-        `;
+        div.innerHTML = `<div class="bg-pink-600 text-white p-3 rounded-2xl shadow-sm max-w-[80%]">${text}</div>`;
     } else {
         div.className = 'flex items-start space-x-2';
         div.innerHTML = `
             <div class="w-7 h-7 bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 rounded-full flex items-center justify-center flex-shrink-0 text-xs">
                 <i class="fas fa-robot"></i>
             </div>
-            <div class="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-3 rounded-2xl shadow-sm max-w-[80%] border border-gray-100 dark:border-gray-700">
-                ${text}
-            </div>
+            <div class="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-3 rounded-2xl shadow-sm max-w-[80%] border border-gray-100 dark:border-gray-700">${text}</div>
         `;
     }
     messagesEl.appendChild(div);
@@ -838,36 +827,14 @@ function appendChatMessage(text, sender) {
 
 function generateBotResponse(userMsg) {
     const msg = userMsg.toLowerCase().trim();
-
-    if (msg.includes('hola') || msg.includes('buenos dias') || msg.includes('buenas tardes') || msg.includes('buenas noches') || msg.includes('que tal')) {
-        return "¡Hola! Qué gusto saludarte en Boutique Glam Chic. 💖 ¿Cómo puedo ayudarte hoy? Puedes preguntarme sobre pagos, envíos, vestidos o nuestras ubicaciones.";
-    } 
-    else if (msg.includes('pago') || msg.includes('pagar') || msg.includes('tarjeta') || msg.includes('efectivo') || msg.includes('transferencia') || msg.includes('oxxo')) {
-        return "💳 Contamos con múltiples métodos de pago seguros:\n1. PayPal / Tarjetas de crédito/débito.\n2. Efectivo contra entrega.\n3. Transferencia bancaria directa.";
-    } 
-    else if (msg.includes('envio') || msg.includes('entrega') || msg.includes('tiempo') || msg.includes('llega') || msg.includes('costo') || msg.includes('domicilio')) {
-        return "🚚 Realizamos envíos locales y nacionales. El tiempo estimado de entrega es de 2 a 3 días hábiles una vez confirmado tu pedido en el sistema.";
-    } 
-    else if (msg.includes('vestido') || msg.includes('ropa') || msg.includes('accesorio') || msg.includes('calzado') || msg.includes('catalogo') || msg.includes('productos') || msg.includes('muestrame')) {
-        return "👗 Tenemos una colección exclusiva de vestidos midi, bolsos y accesorios de alta calidad. Puedes explorar y filtrar todo nuestro catálogo directamente en la página principal.";
-    } 
-    else if (msg.includes('ubicacion') || msg.includes('donde') || msg.includes('tienda') || msg.includes('local') || msg.includes('sucursal')) {
-        return "📍 Operamos principalmente como una boutique digital exclusiva con entregas programadas y atención en línea las 24 horas.";
-    }
-    else if (msg.includes('horario') || msg.includes('atienden') || msg.includes('abierto') || msg.includes('horas')) {
-        return "🕒 Nuestra tienda digital y este asistente virtual están disponibles las 24 horas, los 365 días del año para tomar tus pedidos.";
-    }
-    else if (msg.includes('cambio') || msg.includes('devolucion') || msg.includes('garantia') || msg.includes('regresar')) {
-        return "🔄 Tienes hasta 7 días posteriores a la recepción de tu pedido para solicitar un cambio de talla o aclaración, siempre que la prenda conserve su viñeta original.";
-    }
-    else if (msg.includes('descuento') || msg.includes('oferta') || msg.includes('promo') || msg.includes('cupon')) {
-        return "✨ ¡Mantente atento a nuestras publicaciones! Frecuentemente lanzamos dinámicas y códigos promocionales especiales para nuestras clientas frecuentes.";
-    }
-    else if (msg.includes('contacto') || msg.includes('telefono') || msg.includes('whatsapp') || msg.includes('humano') || msg.includes('asesor')) {
-        return "📱 Claro que sí. Si necesitas atención directa con un asesor humano, puedes hacer clic en el botón verde de 'WhatsApp' dentro de tu carrito de compras.";
-    } 
-    else {
-        return "Interesante pregunta. 🤔 En Glam Chic nos especializamos en moda exclusiva. ¿Te gustaría saber más sobre nuestros métodos de pago, tiempos de entrega o ver el catálogo de vestidos?";
+    if (msg.includes('hola') || msg.includes('buenos dias') || msg.includes('buenas tardes')) {
+        return "¡Hola! Qué gusto saludarte en Boutique Glam Chic. 💖 ¿Cómo puedo ayudarte hoy?";
+    } else if (msg.includes('pago') || msg.includes('tarjeta') || msg.includes('efectivo')) {
+        return "💳 Contamos con pagos por PayPal, tarjetas y efectivo contra entrega.";
+    } else if (msg.includes('envio') || msg.includes('tiempo')) {
+        return "🚚 Los envíos tardan de 2 a 3 días hábiles una vez confirmado tu pedido.";
+    } else {
+        return "En Glam Chic nos especializamos en moda exclusiva. ¿Te gustaría conocer nuestros vestidos o métodos de pago?";
     }
 }
 
@@ -878,7 +845,6 @@ window.loadAdminDashboardData = async function() {
     const pendingOrdersEl = document.getElementById('kpi-pending-orders');
 
     if (!tableBody) return;
-
     tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando métricas...</td></tr>`;
 
     try {
@@ -890,7 +856,7 @@ window.loadAdminDashboardData = async function() {
             return;
         }
     } catch (err) {
-        console.log('Cargando órdenes administrativas locales...');
+        console.log('Cargando órdenes locales...');
     }
 
     const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
@@ -918,7 +884,6 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
     orders.forEach(order => {
         const orderId = order._id || order.id;
         const itemsSummary = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
-        
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
         tr.innerHTML = `
@@ -933,22 +898,14 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
                 <p><strong>Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
             </td>
             <td class="p-4 font-bold text-gray-900 dark:text-white">$${order.total.toFixed(2)}</td>
-            <td class="p-4">
-                <span class="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                    ${order.status || 'Pendiente'}
-                </span>
-            </td>
+            <td class="p-4"><span class="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">${order.status || 'Pendiente'}</span></td>
         `;
         tableBody.appendChild(tr);
     });
 }
 
 window.exportOrdersToExcel = function() {
-    if (!cachedAdminOrders || cachedAdminOrders.length === 0) {
-        alert('No hay pedidos disponibles para exportar.');
-        return;
-    }
-
+    if (!cachedAdminOrders || cachedAdminOrders.length === 0) { alert('No hay pedidos.'); return; }
     const dataToExport = cachedAdminOrders.map(o => ({
         'ID Pedido': o._id || o.id,
         'Cliente': o.clientName || 'N/D',
@@ -960,74 +917,50 @@ window.exportOrdersToExcel = function() {
         'Estatus': o.status || 'Pendiente',
         'Fecha': new Date(o.createdAt || Date.now()).toLocaleString()
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Historial de Ventas");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Ventas");
     XLSX.writeFile(workbook, "Reporte_Ventas_GlamChic.xlsx");
-    showToast('¡Reporte de Excel exportado con éxito!');
+    showToast('¡Reporte de Excel exportado!');
 }
 
 window.exportOrdersToPDF = function() {
-    if (!cachedAdminOrders || cachedAdminOrders.length === 0) {
-        alert('No hay pedidos disponibles para exportar.');
-        return;
-    }
-
+    if (!cachedAdminOrders || cachedAdminOrders.length === 0) { alert('No hay pedidos.'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(219, 39, 119);
     doc.text("Boutique Glam Chic - Reporte de Ventas", 14, 20);
 
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 28);
-
-    const tableColumns = ["ID Pedido", "Cliente", "Teléfono", "Método Pago", "Total", "Estatus", "Fecha"];
+    const tableColumns = ["ID", "Cliente", "Tel", "Pago", "Total", "Estatus"];
     const tableRows = cachedAdminOrders.map(o => [
         String(o._id || o.id).substring(0, 8) + '...',
-        o.clientName || o.clientEmail || 'Cliente',
+        o.clientName || 'Cliente',
         o.clientPhone || 'N/D',
         o.paymentMethod || 'Efectivo',
         `$${o.total.toFixed(2)}`,
-        o.status || 'Pendiente',
-        new Date(o.createdAt || Date.now()).toLocaleDateString()
+        o.status || 'Pendiente'
     ]);
 
-    doc.autoTable({
-        head: [tableColumns],
-        body: tableRows,
-        startY: 35,
-        theme: 'grid',
-        headStyles: { fillColor: [219, 39, 119] },
-        styles: { fontSize: 8 }
-    });
-
+    doc.autoTable({ head: [tableColumns], body: tableRows, startY: 30 });
     doc.save("Reporte_Ventas_GlamChic.pdf");
-    showToast('¡Reporte en PDF exportado con éxito!');
+    showToast('¡Reporte en PDF exportado!');
 }
 
 function renderSalesChart(orders) {
     const ctx = document.getElementById('salesChart');
     if (!ctx) return;
-
     const recentOrders = [...orders].reverse().slice(-6);
-    const labels = recentOrders.map(o => new Date(o.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+    const labels = recentOrders.map(o => new Date(o.createdAt || Date.now()).toLocaleDateString());
     const dataValues = recentOrders.map(o => o.total);
 
-    if (salesChartInstance) {
-        salesChartInstance.destroy();
-    }
-
+    if (salesChartInstance) salesChartInstance.destroy();
     salesChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels.length > 0 ? labels : ['Sin datos'],
             datasets: [{
-                label: 'Monto del Pedido ($ MXN)',
                 data: dataValues.length > 0 ? dataValues : [0],
                 backgroundColor: 'rgba(219, 39, 119, 0.7)',
                 borderColor: 'rgb(219, 39, 119)',
@@ -1035,22 +968,7 @@ function renderSalesChart(orders) {
                 borderRadius: 8
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(200, 200, 200, 0.1)' }
-                },
-                x: {
-                    grid: { display: false }
-                }
-            }
-        }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 }
 
@@ -1061,31 +979,25 @@ function setupOrderModal() {
     const whatsappBtn = document.getElementById('whatsapp-btn');
 
     if (!modal || !openBtn) return;
-
     openBtn.addEventListener('click', () => {
         renderOrderModalContent();
         modal.classList.remove('hidden');
         renderPayPalButton();
     });
-
     if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
 
     if (whatsappBtn) {
         whatsappBtn.addEventListener('click', () => {
             const order = getSavedOrder();
-            if (order.length === 0) { alert('Tu pedido está vacío.'); return; }
-
+            if (order.length === 0) { alert('Pedido vacío.'); return; }
             let message = "Hola, me gustaría solicitar los siguientes artículos de Boutique Glam Chic:\n\n";
             let total = 0;
             order.forEach(item => {
                 message += `- ${item.quantity}x ${item.name} ($${(item.price * item.quantity).toFixed(2)})\n`;
                 total += item.price * item.quantity;
             });
-            message += `\n*Total Estimado: $${total.toFixed(2)}*`;
-
-            const phoneNumber = "5218995432261"; 
-            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
+            message += `\n*Total: $${total.toFixed(2)}*`;
+            window.open(`https://wa.me/5218995432261?text=${encodeURIComponent(message)}`, '_blank');
         });
     }
 }
@@ -1095,10 +1007,7 @@ function renderPayPalButton() {
     if (!container) return;
     container.innerHTML = '';
 
-    if (typeof paypal === 'undefined') {
-        container.innerHTML = '<p class="text-xs text-red-500 text-center">SDK de PayPal no disponible en modo estático.</p>';
-        return;
-    }
+    if (typeof paypal === 'undefined') return;
 
     paypal.Buttons({
         createOrder: (data, actions) => {
@@ -1107,17 +1016,12 @@ function renderPayPalButton() {
             const address = document.getElementById('shipping-address').value;
             const phone = document.getElementById('client-phone').value;
 
-            if (order.length === 0) { alert('Tu pedido está vacío.'); throw new Error('Carrito vacío'); }
-            if (!session) { alert('Debes iniciar sesión para procesar tu pago.'); openAuthModal(); throw new Error('Sin sesión'); }
-            if (!address || !phone) { alert('Por favor, completa la dirección de envío y el teléfono.'); throw new Error('Faltan datos'); }
+            if (order.length === 0) throw new Error('Carrito vacío');
+            if (!session) { alert('Inicia sesión.'); openAuthModal(); throw new Error('Sin sesión'); }
+            if (!address || !phone) { alert('Completa dirección y teléfono.'); throw new Error('Faltan datos'); }
 
             const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-            return actions.order.create({
-                purchase_units: [{
-                    amount: { value: total.toFixed(2) }
-                }]
-            });
+            return actions.order.create({ purchase_units: [{ amount: { value: total.toFixed(2) } }] });
         },
         onApprove: async (data, actions) => {
             return actions.order.capture().then(async (details) => {
@@ -1133,7 +1037,7 @@ function renderPayPalButton() {
                     clientName: session.name,
                     shippingAddress: address,
                     clientPhone: phone,
-                    paymentMethod: 'PayPal (Pagado - ID: ' + details.id + ')',
+                    paymentMethod: 'PayPal (ID: ' + details.id + ')',
                     items: order,
                     total: total,
                     status: 'Pendiente',
@@ -1146,24 +1050,18 @@ function renderPayPalButton() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newOrderRecord)
                     });
-                } catch (e) {
-                    console.log('Guardando orden localmente...');
-                }
+                } catch (e) {}
 
                 const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
                 localOrders.push(newOrderRecord);
                 localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
 
-                alert(`¡Pago completado con éxito por ${details.payer.name.given_name}! Pedido registrado.`);
+                alert(`¡Pago completado con éxito! Pedido registrado.`);
                 localStorage.removeItem('glam_saved_order');
                 updateOrderBadge();
                 renderOrderModalContent();
                 document.getElementById('order-modal').classList.add('hidden');
             });
-        },
-        onError: (err) => {
-            console.error('Error en pasarela PayPal:', err);
-            alert('Ocurrió un error al procesar el pago con PayPal.');
         }
     }).render('#paypal-button-container');
 }
@@ -1185,7 +1083,6 @@ function setupThemeToggle() {
             localStorage.setItem('glam_theme', 'light');
         }
     };
-
     applyTheme((localStorage.getItem('glam_theme') || 'light') === 'dark');
     toggleBtn.addEventListener('click', () => applyTheme(!htmlElement.classList.contains('dark')));
 }
@@ -1205,7 +1102,6 @@ function setupFilters() {
         });
         renderCatalog(filtered);
     };
-
     searchInput.addEventListener('input', filterHandler);
     categoryFilter.addEventListener('change', filterHandler);
 }
@@ -1219,16 +1115,4 @@ function monitorConnection() {
     updateStatus();
 }
 
-function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW registrado:', reg.scope))
-                .catch(err => console.log('Error SW:', err));
-        });
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    initializeApp();
-});
+document.addEventListener('DOMContentLoaded', () => { initializeApp(); });

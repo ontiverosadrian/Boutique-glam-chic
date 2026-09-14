@@ -1065,6 +1065,66 @@ window.deleteAdminOrder = async function(orderId) {
     loadAdminDashboardData();
 };
 
+window.confirmCashOrder = async function() {
+    const order = getSavedOrder();
+    const session = JSON.parse(localStorage.getItem('glam_user_session'));
+    const address = document.getElementById('shipping-address').value;
+    const phone = document.getElementById('client-phone').value;
+
+    if (order.length === 0) {
+        alert('Tu pedido está vacío.');
+        return;
+    }
+    if (!session) {
+        alert('Por favor, inicia sesión para confirmar tu pedido.');
+        openAuthModal();
+        return;
+    }
+    if (!address || !phone) {
+        alert('Por favor, completa la dirección de envío y el teléfono de contacto.');
+        return;
+    }
+
+    const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    const newOrderRecord = {
+        _id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+        clientEmail: session.email,
+        clientName: session.name,
+        shippingAddress: address,
+        clientPhone: phone,
+        paymentMethod: 'Efectivo / Pago Directo',
+        items: order,
+        total: total,
+        status: 'Pendiente',
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await fetch(`${API_URL}/api/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newOrderRecord)
+        });
+    } catch (e) {
+        console.log('Guardando pedido localmente...');
+    }
+
+    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+    localOrders.push(newOrderRecord);
+    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
+
+    alert('¡Pedido confirmado con éxito! Ya se encuentra disponible en tu historial y en el panel de administración.');
+    localStorage.removeItem('glam_saved_order');
+    updateOrderBadge();
+    renderOrderModalContent();
+    document.getElementById('order-modal').classList.add('hidden');
+    
+    if (typeof loadClientOrderHistory === 'function') {
+        loadClientOrderHistory();
+    }
+};
+
 window.exportOrdersToExcel = function() {
     if (!cachedAdminOrders || cachedAdminOrders.length === 0) { alert('No hay pedidos.'); return; }
     const dataToExport = cachedAdminOrders.map(o => ({
@@ -1213,7 +1273,7 @@ function renderPayPalButton() {
                     });
                 } catch (e) {}
 
-                const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+                let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
                 localOrders.push(newOrderRecord);
                 localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
 

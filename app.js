@@ -1,3 +1,4 @@
+// Definición automática de la URL de la API (Local en tu PC vs Nube en Render)
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
     : 'https://boutique-glam-chic.onrender.com';
@@ -463,39 +464,48 @@ function setupProductForm() {
     const form = document.getElementById('add-product-form');
     if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('prod-name').value;
+        const name = document.getElementById('prod-name').value.trim();
         const category = document.getElementById('prod-category').value;
         const price = parseFloat(document.getElementById('prod-price').value);
-        const image = document.getElementById('prod-image').value;
-        const description = document.getElementById('prod-desc').value;
+        const image = document.getElementById('prod-image').value.trim();
+        const description = document.getElementById('prod-desc').value.trim();
 
-        const newProd = { id: Date.now().toString(), name, category, price, image, description };
+        const newProd = { name, category, price, image, description };
 
         try {
+            showToast('Guardando producto en la base de datos...');
             const response = await fetch(`${API_URL}/api/admin/products`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newProd)
             });
+            
             if (response.ok) {
-                form.reset();
+                const savedProduct = await response.json();
+                
+                let currentProducts = getStoredProducts();
+                currentProducts.push(savedProduct);
+                localStorage.setItem('glam_products', JSON.stringify(currentProducts));
+
+                newForm.reset();
+                renderCatalog(currentProducts);
+                renderAdminProductsTable(currentProducts);
+                showToast('¡Producto guardado exitosamente en MongoDB!');
+                
                 await fetchAndRenderProducts();
-                showToast('¡Producto agregado a la base de datos!');
                 return;
+            } else {
+                throw new Error('Error al guardar en el servidor');
             }
         } catch (err) {
-            console.log('Guardando producto localmente...');
+            console.error('Error al guardar en la nube:', err);
+            alert('No se pudo conectar con el servidor para guardar el producto en la base de datos.');
         }
-
-        const products = getStoredProducts();
-        products.push(newProd);
-        localStorage.setItem('glam_products', JSON.stringify(products));
-        form.reset();
-        renderCatalog(products);
-        renderAdminProductsTable(products);
-        showToast('¡Producto agregado localmente!');
     });
 }
 
@@ -1274,7 +1284,7 @@ function renderPayPalButton() {
                 const session = JSON.parse(localStorage.getItem('glam_user_session'));
                 const address = document.getElementById('shipping-address').value;
                 const phone = document.getElementById('client-phone').value;
-                const total = order.reduced((sum, item) => sum + (item.price * item.quantity), 0);
+                const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
                 const newOrderRecord = {
                     clientEmail: session.email,

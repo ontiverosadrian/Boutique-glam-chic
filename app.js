@@ -606,30 +606,28 @@ async function loadClientOrderHistory() {
 
     container.innerHTML = `<div class="text-center py-10 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando tus pedidos...</div>`;
 
-    let ordersToRender = [];
+    let fetchedOrders = [];
 
     try {
         const response = await fetch(`${API_URL}/api/orders/client/${encodeURIComponent(session.email)}`);
         if (response.ok) {
-            const apiOrders = await response.json();
-            if (apiOrders && apiOrders.length > 0) {
-                ordersToRender = apiOrders;
-            }
+            fetchedOrders = await response.json();
         }
     } catch (err) {
-        console.log('No se pudo conectar a la API, usando historial local.');
+        console.log('Usando almacenamiento local debido a fallo de red.');
+        const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+        fetchedOrders = localOrders.filter(o => o.clientEmail === session.email);
     }
 
-    const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    const clientLocalOrders = localOrders.filter(o => o.clientEmail === session.email);
-    
-    const allOrdersMap = new Map();
-    [...ordersToRender, ...clientLocalOrders].forEach(ord => {
-        const id = ord._id || ord.id;
-        if (id) allOrdersMap.set(String(id), ord);
+    const uniqueOrdersMap = new Map();
+    (fetchedOrders || []).forEach(ord => {
+        const uniqueKey = ord._id || ord.id || `${ord.createdAt}-${ord.total}`;
+        if (!uniqueOrdersMap.has(String(uniqueKey))) {
+            uniqueOrdersMap.set(String(uniqueKey), ord);
+        }
     });
 
-    cachedClientOrders = Array.from(allOrdersMap.values());
+    cachedClientOrders = Array.from(uniqueOrdersMap.values());
     renderOrdersList(cachedClientOrders, container);
 }
 
@@ -693,65 +691,71 @@ window.downloadClientTicket = function(orderId) {
     const order = cachedClientOrders.find(o => String(o._id || o.id) === String(orderId) || String(o._id || o.id).includes(orderId));
     
     if (!order) {
-        alert('No se encontró la información detallada de este pedido para generar el ticket.');
+        alert('No se encontró la información detallada de este pedido.');
         return;
     }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: [80, 150] });
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'mm', format: [80, 150] });
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(219, 39, 119);
-    doc.text("BOUTIQUE GLAM CHIC", 40, 10, { align: "center" });
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.setTextColor(219, 39, 119);
+        doc.text("BOUTIQUE GLAM CHIC", 40, 10, { align: "center" });
 
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text("Moda y Accesorios Exclusivos", 40, 15, { align: "center" });
-    doc.text("----------------------------------------------------------------", 40, 19, { align: "center" });
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Moda y Accesorios Exclusivos", 40, 15, { align: "center" });
+        doc.text("----------------------------------------------------------------", 40, 19, { align: "center" });
 
-    doc.setFontSize(8);
-    doc.setTextColor(50, 50, 50);
-    doc.text(`Folio ID: ${String(order._id || order.id).substring(0, 12)}...`, 5, 24);
-    doc.text(`Fecha: ${new Date(order.createdAt || Date.now()).toLocaleString()}`, 5, 29);
-    doc.text(`Cliente: ${order.clientName || 'Cliente'}`, 5, 34);
-    doc.text(`Tel: ${order.clientPhone || 'N/D'}`, 5, 39);
-    doc.text(`Dir: ${order.shippingAddress || 'N/D'}`, 5, 44);
-    doc.text(`Pago: ${order.paymentMethod || 'Efectivo'}`, 5, 49);
-    doc.text("----------------------------------------------------------------", 40, 53, { align: "center" });
+        doc.setFontSize(8);
+        doc.setTextColor(50, 50, 50);
+        doc.text(`Folio ID: ${String(order._id || order.id).substring(0, 10)}...`, 5, 24);
+        doc.text(`Fecha: ${new Date(order.createdAt || Date.now()).toLocaleString()}`, 5, 29);
+        doc.text(`Cliente: ${order.clientName || 'Cliente'}`, 5, 34);
+        doc.text(`Tel: ${order.clientPhone || 'N/D'}`, 5, 39);
+        doc.text(`Dir: ${order.shippingAddress || 'N/D'}`, 5, 44);
+        doc.text(`Pago: ${order.paymentMethod || 'Efectivo'}`, 5, 49);
+        doc.text("----------------------------------------------------------------", 40, 53, { align: "center" });
 
-    const tableColumns = ["Cant. / Art.", "Subtotal"];
-    const tableRows = (order.items || []).map(i => [
-        `${i.quantity}x ${i.name}`,
-        `$${(i.price * i.quantity).toFixed(2)}`
-    ]);
+        const tableColumns = ["Artículos", "Subtotal"];
+        const tableRows = (order.items || []).map(i => [
+            `${i.quantity}x ${i.name}`,
+            `$${(i.price * i.quantity).toFixed(2)}`
+        ]);
 
-    doc.autoTable({
-        head: [tableColumns],
-        body: tableRows,
-        startY: 56,
-        theme: 'plain',
-        headStyles: { fillColor: [219, 39, 119], textColor: [255, 255, 255], fontSize: 8 },
-        styles: { fontSize: 7, cellPadding: 1 },
-        margin: { left: 5, right: 5 }
-    });
+        if (typeof doc.autoTable === 'function') {
+            doc.autoTable({
+                head: [tableColumns],
+                body: tableRows,
+                startY: 56,
+                theme: 'plain',
+                headStyles: { fillColor: [219, 39, 119], textColor: [255, 255, 255], fontSize: 8 },
+                styles: { fontSize: 7, cellPadding: 1 },
+                margin: { left: 5, right: 5 }
+            });
+        }
 
-    let finalY = doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 5 : 70;
-    doc.text("----------------------------------------------------------------", 40, finalY, { align: "center" });
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(219, 39, 119);
-    doc.text(`TOTAL: $${(order.total || 0).toFixed(2)}`, 75, finalY + 6, { align: "right" });
+        let finalY = doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 6 : 75;
+        doc.text("----------------------------------------------------------------", 40, finalY, { align: "center" });
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(219, 39, 119);
+        doc.text(`TOTAL: $${(order.total || 0).toFixed(2)}`, 75, finalY + 6, { align: "right" });
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(120, 120, 120);
-    doc.text("¡Gracias por tu compra en Glam Chic!", 40, finalY + 14, { align: "center" });
-    doc.text("Conserva este ticket para cualquier aclaración.", 40, 18, { align: "center" });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(120, 120, 120);
+        doc.text("¡Gracias por tu compra en Glam Chic!", 40, finalY + 14, { align: "center" });
 
-    doc.save(`Ticket_GlamChic_${String(order._id || order.id).substring(0, 6)}.pdf`);
-    showToast('¡Ticket en PDF descargado con éxito!');
+        doc.save(`Ticket_${String(order._id || order.id).substring(0, 6)}.pdf`);
+        showToast('¡Ticket descargado con éxito!');
+    } catch (error) {
+        console.error("Error al generar el PDF del ticket:", error);
+        alert('Ocurrió un error al generar el PDF del ticket.');
+    }
 };
 
 window.downloadCatalogPDF = async function() {
@@ -1116,20 +1120,17 @@ window.confirmCashOrder = async function() {
             body: JSON.stringify(newOrderRecord)
         });
 
-        if (!response.ok) {
-            throw new Error('Error al registrar en MongoDB');
-        }
-
-        const savedData = await response.json();
-        console.log('Pedido guardado exitosamente en MongoDB:', savedData);
+        if (!response.ok) throw new Error('Error al registrar en MongoDB');
+        
+        localStorage.removeItem('glam_local_orders');
     } catch (e) {
-        console.log('Guardando pedido de respaldo localmente:', e);
+        console.log('Guardando en respaldo local:', e);
         let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
         localOrders.push({ ...newOrderRecord, _id: 'ORD-' + Math.floor(100000 + Math.random() * 900000) });
         localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
     }
 
-    alert('¡Pedido confirmado con éxito! Ya se encuentra registrado en el sistema y en tu dashboard.');
+    alert('¡Pedido confirmado con éxito!');
     localStorage.removeItem('glam_saved_order');
     updateOrderBadge();
     renderOrderModalContent();

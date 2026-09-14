@@ -606,22 +606,31 @@ async function loadClientOrderHistory() {
 
     container.innerHTML = `<div class="text-center py-10 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando tus pedidos...</div>`;
 
+    let ordersToRender = [];
+
     try {
         const response = await fetch(`${API_URL}/api/orders/client/${encodeURIComponent(session.email)}`);
-        const orders = await response.json();
-
         if (response.ok) {
-            cachedClientOrders = orders;
-            renderOrdersList(orders, container);
-            return;
+            const apiOrders = await response.json();
+            if (apiOrders && apiOrders.length > 0) {
+                ordersToRender = apiOrders;
+            }
         }
     } catch (err) {
-        console.log('Cargando historial local...');
+        console.log('No se pudo conectar a la API, usando historial local.');
     }
 
     const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    cachedClientOrders = localOrders;
-    renderOrdersList(localOrders, container);
+    const clientLocalOrders = localOrders.filter(o => o.clientEmail === session.email);
+    
+    const allOrdersMap = new Map();
+    [...ordersToRender, ...clientLocalOrders].forEach(ord => {
+        const id = ord._id || ord.id;
+        if (id) allOrdersMap.set(String(id), ord);
+    });
+
+    cachedClientOrders = Array.from(allOrdersMap.values());
+    renderOrdersList(cachedClientOrders, container);
 }
 
 function renderOrdersList(orders, container) {
@@ -639,7 +648,7 @@ function renderOrdersList(orders, container) {
     orders.forEach((order) => {
         const orderId = order._id || order.id;
         const date = new Date(order.createdAt || Date.now()).toLocaleString();
-        let itemsListHtml = order.items.map(i => `
+        let itemsListHtml = (order.items || []).map(i => `
             <div class="flex justify-between text-xs text-gray-600 dark:text-gray-300 py-1 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
                 <span>${i.quantity}x ${i.name}</span>
                 <span class="font-medium">$${(i.price * i.quantity).toFixed(2)}</span>
@@ -673,7 +682,7 @@ function renderOrdersList(orders, container) {
             </div>
             <div class="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700 font-bold text-sm">
                 <span class="text-gray-700 dark:text-gray-300">Total pagado:</span>
-                <span class="text-pink-600 dark:text-pink-400 text-base">$${order.total.toFixed(2)}</span>
+                <span class="text-pink-600 dark:text-pink-400 text-base">$${(order.total || 0).toFixed(2)}</span>
             </div>
         `;
         container.appendChild(card);
@@ -681,9 +690,10 @@ function renderOrdersList(orders, container) {
 }
 
 window.downloadClientTicket = function(orderId) {
-    const order = cachedClientOrders.find(o => (o._id === orderId || o.id == orderId));
+    const order = cachedClientOrders.find(o => String(o._id || o.id) === String(orderId) || String(o._id || o.id).includes(orderId));
+    
     if (!order) {
-        alert('No se encontró la información del pedido.');
+        alert('No se encontró la información detallada de este pedido para generar el ticket.');
         return;
     }
 
@@ -711,7 +721,7 @@ window.downloadClientTicket = function(orderId) {
     doc.text("----------------------------------------------------------------", 40, 53, { align: "center" });
 
     const tableColumns = ["Cant. / Art.", "Subtotal"];
-    const tableRows = order.items.map(i => [
+    const tableRows = (order.items || []).map(i => [
         `${i.quantity}x ${i.name}`,
         `$${(i.price * i.quantity).toFixed(2)}`
     ]);
@@ -726,13 +736,13 @@ window.downloadClientTicket = function(orderId) {
         margin: { left: 5, right: 5 }
     });
 
-    let finalY = doc.lastAutoTable.finalY + 5;
+    let finalY = doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 5 : 70;
     doc.text("----------------------------------------------------------------", 40, finalY, { align: "center" });
     
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(219, 39, 119);
-    doc.text(`TOTAL: $${order.total.toFixed(2)}`, 75, finalY + 6, { align: "right" });
+    doc.text(`TOTAL: $${(order.total || 0).toFixed(2)}`, 75, finalY + 6, { align: "right" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
@@ -742,7 +752,7 @@ window.downloadClientTicket = function(orderId) {
 
     doc.save(`Ticket_GlamChic_${String(order._id || order.id).substring(0, 6)}.pdf`);
     showToast('¡Ticket en PDF descargado con éxito!');
-}
+};
 
 window.downloadCatalogPDF = async function() {
     try {
@@ -978,7 +988,7 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
     tableBody.innerHTML = '';
     orders.forEach(order => {
         const orderId = order._id || order.id;
-        const itemsSummary = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+        const itemsSummary = (order.items || []).map(i => `${i.quantity}x ${i.name}`).join(', ');
         const currentStatus = order.status || 'Pendiente';
 
         let statusBg = 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
@@ -999,7 +1009,7 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
                 <p><strong>Dir:</strong> ${order.shippingAddress || 'N/D'}</p>
                 <p><strong>Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
             </td>
-            <td class="p-4 font-bold text-gray-900 dark:text-white">$${order.total.toFixed(2)}</td>
+            <td class="p-4 font-bold text-gray-900 dark:text-white">$${(order.total || 0).toFixed(2)}</td>
             <td class="p-4 flex items-center space-x-3">
                 <select onchange="updateOrderStatus('${orderId}', this.value)" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-gray-200 dark:border-gray-700 ${statusBg} focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
                     <option value="Pendiente" ${currentStatus === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
@@ -1165,7 +1175,7 @@ window.exportOrdersToPDF = function() {
         o.clientName || 'Cliente',
         o.clientPhone || 'N/D',
         o.paymentMethod || 'Efectivo',
-        `$${o.total.toFixed(2)}`,
+        `$${(o.total || 0).toFixed(2)}`,
         o.status || 'Pendiente'
     ]);
 
@@ -1179,7 +1189,7 @@ function renderSalesChart(orders) {
     if (!ctx) return;
     const recentOrders = [...orders].reverse().slice(-6);
     const labels = recentOrders.map(o => new Date(o.createdAt || Date.now()).toLocaleDateString());
-    const dataValues = recentOrders.map(o => o.total);
+    const dataValues = recentOrders.map(o => o.total || 0);
 
     if (salesChartInstance) salesChartInstance.destroy();
     salesChartInstance = new Chart(ctx, {

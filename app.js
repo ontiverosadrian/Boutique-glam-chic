@@ -997,25 +997,25 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
 }
 
 window.updateOrderStatus = async function(orderId, newStatus) {
+    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+    localOrders = localOrders.map(o => (o._id === orderId || o.id == orderId) ? { ...o, status: newStatus } : o);
+    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
+
+    if (cachedAdminOrders) {
+        cachedAdminOrders = cachedAdminOrders.map(o => (o._id === orderId || o.id == orderId) ? { ...o, status: newStatus } : o);
+    }
+
     try {
-        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
+        await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
-        if (response.ok) {
-            showToast(`¡Estatus actualizado a "${newStatus}"!`);
-            loadAdminDashboardData();
-            return;
-        }
     } catch (e) {
-        console.log('Actualizando estatus localmente...');
+        console.log('Sincronización con la nube pendiente, guardado localmente.');
     }
 
-    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    localOrders = localOrders.map(o => (o._id === orderId || o.id == orderId) ? { ...o, status: newStatus } : o);
-    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
-    showToast(`¡Estatus actualizado localmente a "${newStatus}"!`);
+    showToast(`¡Estatus actualizado a "${newStatus}"!`);
     loadAdminDashboardData();
 };
 

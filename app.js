@@ -7,6 +7,8 @@ let isRegistering = false;
 let salesChartInstance = null;
 let cachedAdminOrders = [];
 let cachedClientOrders = [];
+let selectedProductForDetail = null;
+let currentSelectedSize = 'Unitalla';
 
 async function initializeApp() {
     if (!localStorage.getItem('glam_saved_order')) {
@@ -81,20 +83,25 @@ function renderCatalog(itemsToRender) {
     itemsToRender.forEach(product => {
         const prodId = product._id || product.id || Math.random().toString();
         const card = document.createElement('div');
-        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col';
+        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col cursor-pointer group';
+        card.onclick = (e) => {
+            if (e.target.closest('.quick-add-btn')) return;
+            openProductDetail(prodId);
+        };
+
         card.innerHTML = `
             <div class="h-64 overflow-hidden bg-gray-100 dark:bg-gray-900 relative">
-                <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover object-center hover:scale-105 transition-transform duration-300" loading="lazy">
+                <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300" loading="lazy">
                 <span class="absolute top-3 right-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-pink-700 dark:text-pink-400 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                     ${product.category}
                 </span>
             </div>
             <div class="p-5 flex flex-col flex-grow">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 mb-1">${product.name}</h3>
-                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4 flex-grow">${product.description || ''}</p>
+                <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 mb-1 group-hover:text-pink-600 transition-colors">${product.name}</h3>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4 flex-grow line-clamp-2">${product.description || 'Sin descripción detallada.'}</p>
                 <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
                     <span class="text-xl font-extrabold text-pink-600 dark:text-pink-400">$${product.price.toFixed(2)}</span>
-                    <button onclick="addToOrder('${prodId}')" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-1.5">
+                    <button onclick="addToOrder('${prodId}')" class="quick-add-btn bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-1.5">
                         <i class="fas fa-plus"></i> <span>Añadir</span>
                     </button>
                 </div>
@@ -103,6 +110,69 @@ function renderCatalog(itemsToRender) {
         grid.appendChild(card);
     });
 }
+
+window.openProductDetail = function(productId) {
+    const products = getStoredProducts();
+    const product = products.find(p => (p._id === productId || p.id == productId || String(p.id) === String(productId)));
+    if (!product) return;
+
+    selectedProductForDetail = product;
+    currentSelectedSize = 'Unitalla';
+
+    document.querySelectorAll('.size-btn').forEach(btn => {
+        if (btn.textContent === 'Unitalla') {
+            btn.className = 'size-btn px-4 py-2 rounded-xl text-xs font-bold border border-pink-500 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 transition-all';
+        } else {
+            btn.className = 'size-btn px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 hover:border-pink-500 transition-all text-gray-700 dark:text-gray-200';
+        }
+    });
+
+    document.getElementById('detail-img').src = product.image;
+    document.getElementById('detail-category').textContent = product.category;
+    document.getElementById('detail-name').textContent = product.name;
+    document.getElementById('detail-price').textContent = `$${product.price.toFixed(2)}`;
+    document.getElementById('detail-desc').textContent = product.description || 'Prenda exclusiva de alta calidad con acabados finos de Boutique Glam Chic.';
+
+    document.getElementById('product-detail-modal').classList.remove('hidden');
+};
+
+window.closeProductDetailModal = function() {
+    document.getElementById('product-detail-modal').classList.add('hidden');
+    selectedProductForDetail = null;
+};
+
+window.selectSize = function(size) {
+    currentSelectedSize = size;
+    document.querySelectorAll('.size-btn').forEach(btn => {
+        if (btn.textContent === size) {
+            btn.className = 'size-btn px-4 py-2 rounded-xl text-xs font-bold border border-pink-500 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 transition-all';
+        } else {
+            btn.className = 'size-btn px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 hover:border-pink-500 transition-all text-gray-700 dark:text-gray-200';
+        }
+    });
+};
+
+window.addCurrentProductToOrder = function() {
+    if (!selectedProductForDetail) return;
+    
+    const itemWithExtras = {
+        ...selectedProductForDetail,
+        name: `${selectedProductForDetail.name} (Talla: ${currentSelectedSize})`
+    };
+
+    let currentOrder = getSavedOrder();
+    const existingItem = currentOrder.find(item => item.name === itemWithExtras.name);
+
+    if (existingItem) {
+        existingItem.quantity += 1;
+    } else {
+        currentOrder.push({ ...itemWithExtras, quantity: 1 });
+    }
+
+    saveOrderToStorage(currentOrder);
+    showToast(`¡"${selectedProductForDetail.name}" (${currentSelectedSize}) añadido al pedido!`);
+    closeProductDetailModal();
+};
 
 function renderAdminProductsTable(products) {
     const tableBody = document.getElementById('admin-products-table');
@@ -312,7 +382,6 @@ window.logoutUser = function() {
     window.location.reload();
 }
 
-// Función para enviar correo de bienvenida con EmailJS
 function sendWelcomeEmail(userData) {
     const SERVICE_ID = "service_wv8zvlk";
     const TEMPLATE_ID = "template_gm5inic";
@@ -342,7 +411,6 @@ function setupAuthForm() {
         const password = document.getElementById('auth-password').value;
         const name = document.getElementById('auth-name').value;
 
-        // Separamos correctamente la ruta según sea Registro o Login
         const endpoint = isRegistering ? `${API_URL}/api/auth/register` : `${API_URL}/api/auth/login`;
         const payload = isRegistering 
             ? { name, email, password, role: email.includes('admin') ? 'admin' : 'client' }

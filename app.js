@@ -1000,13 +1000,16 @@ function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl
                 <p><strong>Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
             </td>
             <td class="p-4 font-bold text-gray-900 dark:text-white">$${order.total.toFixed(2)}</td>
-            <td class="p-4">
+            <td class="p-4 flex items-center space-x-3">
                 <select onchange="updateOrderStatus('${orderId}', this.value)" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-gray-200 dark:border-gray-700 ${statusBg} focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
                     <option value="Pendiente" ${currentStatus === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                     <option value="Pagado" ${currentStatus === 'Pagado' ? 'selected' : ''}>Pagado</option>
                     <option value="Enviado" ${currentStatus === 'Enviado' ? 'selected' : ''}>Enviado</option>
                     <option value="Entregado" ${currentStatus === 'Entregado' ? 'selected' : ''}>Entregado</option>
                 </select>
+                <button onclick="deleteAdminOrder('${orderId}')" class="p-2 bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 rounded-xl hover:bg-red-200 transition-colors" title="Eliminar Pedido">
+                    <i class="fas fa-trash-alt text-xs"></i>
+                </button>
             </td>
         `;
         tableBody.appendChild(tr);
@@ -1033,6 +1036,29 @@ window.updateOrderStatus = async function(orderId, newStatus) {
     }
 
     showToast(`¡Estatus actualizado a "${newStatus}"!`);
+    loadAdminDashboardData();
+};
+
+window.deleteAdminOrder = async function(orderId) {
+    if (!confirm(`¿Estás segura de eliminar el pedido ${orderId}?`)) return;
+
+    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+    localOrders = localOrders.filter(o => o._id !== orderId && String(o.id) !== String(orderId));
+    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
+
+    if (cachedAdminOrders) {
+        cachedAdminOrders = cachedAdminOrders.filter(o => o._id !== orderId && String(o.id) !== String(orderId));
+    }
+
+    try {
+        await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
+            method: 'DELETE'
+        });
+    } catch (e) {
+        console.log('Eliminación en la nube pendiente, removido localmente.');
+    }
+
+    showToast('Pedido eliminado correctamente.');
     loadAdminDashboardData();
 };
 

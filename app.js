@@ -15,9 +15,11 @@ async function initializeApp() {
         localStorage.setItem('glam_saved_order', JSON.stringify([]));
     }
     await fetchAndRenderProducts();
+    await fetchAndRenderBanner();
     checkUserSession();
     setupProductForm();
     setupEditProductForm();
+    setupBannerAdminForm();
     setupThemeToggle();
     setupFilters();
     updateOrderBadge();
@@ -52,6 +54,26 @@ async function fetchAndRenderProducts() {
         }
     } catch (err) {
         console.log('Modo offline activo o servidor despertando.');
+    }
+}
+
+async function fetchAndRenderBanner() {
+    try {
+        const response = await fetch(`${API_URL}/api/banner`);
+        if (response.ok) {
+            const banner = await response.json();
+            const titleEl = document.getElementById('display-title');
+            const subtitleEl = document.getElementById('display-subtitle');
+            const badgeEl = document.getElementById('display-badge');
+            const videoEl = document.getElementById('display-video');
+
+            if (titleEl && banner.title) titleEl.textContent = banner.title;
+            if (subtitleEl && banner.subtitle) subtitleEl.textContent = banner.subtitle;
+            if (badgeEl && banner.badge) badgeEl.textContent = banner.badge;
+            if (videoEl && banner.videoUrl) videoEl.src = banner.videoUrl;
+        }
+    } catch (e) {
+        console.log('Usando banner por defecto.');
     }
 }
 
@@ -383,34 +405,11 @@ window.logoutUser = function() {
     window.location.reload();
 }
 
-function sendWelcomeEmail(userData) {
-    const SERVICE_ID = "service_wv8zvlk";
-    const TEMPLATE_ID = "template_gm5inic";
-
-    const templateParams = {
-        name: userData.name || 'Cliente',
-        email: userData.email,
-        link: 'https://boquite-glam-chic.netlify.app',
-        date: new Date().toLocaleString()
-    };
-
-    emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams)
-        .then((response) => {
-            console.log('Correo de bienvenida enviado con éxito!', response.status, response.text);
-            showToast('¡Correo de bienvenida enviado a tu bandeja!');
-        }, (err) => {
-            console.error('Error al enviar el correo de bienvenida:', err);
-        });
-}
-
 function setupAuthForm() {
     const form = document.getElementById('auth-form');
     if (!form) return;
 
-    const newForm = form.cloneNode(true);
-    form.parentNode.replaceChild(newForm, form);
-
-    newForm.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const emailInput = document.getElementById('auth-email').value.trim().toLowerCase();
         const passwordInput = document.getElementById('auth-password').value.trim();
@@ -431,8 +430,7 @@ function setupAuthForm() {
 
             if (response.ok) {
                 if (isRegistering) {
-                    sendWelcomeEmail({ name: nameInput, email: emailInput });
-                    alert('¡Registro exitoso! Te hemos enviado un correo de bienvenida. Ahora inicia sesión.');
+                    alert('¡Registro exitoso! Ahora inicia sesión.');
                     toggleAuthMode();
                 } else {
                     localStorage.setItem('glam_user_session', JSON.stringify(data.user));
@@ -446,16 +444,7 @@ function setupAuthForm() {
             }
         } catch (err) {
             console.error('Error de red al autenticar:', err);
-            const fallbackUser = { 
-                name: nameInput || (emailInput.includes('admin') ? 'Administrador' : 'Cliente'), 
-                email: emailInput, 
-                role: emailInput.includes('admin') ? 'admin' : 'client' 
-            };
-            localStorage.setItem('glam_user_session', JSON.stringify(fallbackUser));
-            closeAuthModal();
-            checkUserSession();
-            showToast(`¡Sesión iniciada en modo local, bienvenido!`);
-            window.location.reload();
+            alert('No se pudo conectar con el servidor.');
         }
     });
 }
@@ -464,21 +453,17 @@ function setupProductForm() {
     const form = document.getElementById('add-product-form');
     if (!form) return;
 
-    const newForm = form.cloneNode(true);
-    form.parentNode.replaceChild(newForm, form);
-
-    newForm.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('prod-name').value.trim();
-        const category = document.getElementById('prod-category').value;
-        const price = parseFloat(document.getElementById('prod-price').value);
-        const image = document.getElementById('prod-image').value.trim();
-        const description = document.getElementById('prod-desc').value.trim();
-
-        const newProd = { name, category, price, image, description };
+        const newProd = {
+            name: document.getElementById('prod-name').value.trim(),
+            category: document.getElementById('prod-category').value,
+            price: parseFloat(document.getElementById('prod-price').value),
+            image: document.getElementById('prod-image').value.trim(),
+            description: document.getElementById('prod-desc').value.trim()
+        };
 
         try {
-            showToast('Guardando producto en la base de datos...');
             const response = await fetch(`${API_URL}/api/admin/products`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -486,25 +471,12 @@ function setupProductForm() {
             });
             
             if (response.ok) {
-                const savedProduct = await response.json();
-                
-                let currentProducts = getStoredProducts();
-                currentProducts.push(savedProduct);
-                localStorage.setItem('glam_products', JSON.stringify(currentProducts));
-
-                newForm.reset();
-                renderCatalog(currentProducts);
-                renderAdminProductsTable(currentProducts);
+                form.reset();
                 showToast('¡Producto guardado exitosamente en MongoDB!');
-                
                 await fetchAndRenderProducts();
-                return;
-            } else {
-                throw new Error('Error al guardar en el servidor');
             }
         } catch (err) {
-            console.error('Error al guardar en la nube:', err);
-            alert('No se pudo conectar con el servidor para guardar el producto en la base de datos.');
+            alert('No se pudo conectar con el servidor.');
         }
     });
 }
@@ -553,44 +525,58 @@ function setupEditProductForm() {
                 closeEditModal();
                 await fetchAndRenderProducts();
                 showToast('¡Producto actualizado en la base de datos!');
-                return;
             }
         } catch (err) {
-            console.log('Actualizando producto localmente...');
+            alert('Error al actualizar.');
         }
-
-        let products = getStoredProducts();
-        products = products.map(p => (p._id === id || p.id == id) ? { ...p, ...updated } : p);
-        localStorage.setItem('glam_products', JSON.stringify(products));
-        closeEditModal();
-        renderCatalog(products);
-        renderAdminProductsTable(products);
-        showToast('¡Producto actualizado localmente!');
     });
 }
 
 window.deleteProduct = async function(productId) {
-    if (!confirm('¿Estás seguro de eliminar este producto del inventario?')) return;
+    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
 
     try {
         const response = await fetch(`${API_URL}/api/admin/products/${productId}`, {
             method: 'DELETE'
         });
         if (response.ok) {
-            showToast('Producto eliminado de la base de datos.');
+            showToast('Producto eliminado.');
             await fetchAndRenderProducts();
-            return;
         }
     } catch (err) {
-        console.log('Eliminando producto localmente...');
+        alert('Error al eliminar producto.');
     }
+}
 
-    let products = getStoredProducts();
-    products = products.filter(p => p._id !== productId && p.id != productId);
-    localStorage.setItem('glam_products', JSON.stringify(products));
-    renderCatalog(products);
-    renderAdminProductsTable(products);
-    showToast('Producto eliminado localmente.');
+function setupBannerAdminForm() {
+    const form = document.getElementById('banner-admin-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = {
+            title: document.getElementById('banner-title').value.trim(),
+            badge: document.getElementById('banner-badge').value.trim() || '✨ Promoción',
+            subtitle: document.getElementById('banner-subtitle').value.trim(),
+            videoUrl: document.getElementById('banner-video').value.trim()
+        };
+
+        try {
+            const response = await fetch(`${API_URL}/api/admin/banner`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                showToast('¡Anuncio y spot publicitario actualizados!');
+                fetchAndRenderBanner();
+                form.reset();
+            }
+        } catch (err) {
+            alert('Error al actualizar anuncio.');
+        }
+    });
 }
 
 window.switchClientView = function(view) {
@@ -620,29 +606,15 @@ async function loadClientOrderHistory() {
 
     container.innerHTML = `<div class="text-center py-10 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando tus pedidos...</div>`;
 
-    let fetchedOrders = [];
-
     try {
         const response = await fetch(`${API_URL}/api/orders/client/${encodeURIComponent(session.email)}`);
         if (response.ok) {
-            fetchedOrders = await response.json();
+            cachedClientOrders = await response.json();
+            renderOrdersList(cachedClientOrders, container);
         }
     } catch (err) {
-        console.log('Usando almacenamiento local debido a fallo de red.');
-        const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-        fetchedOrders = localOrders.filter(o => o.clientEmail === session.email);
+        container.innerHTML = '<div class="text-center py-10 text-gray-400">Error al cargar pedidos.</div>';
     }
-
-    const uniqueOrdersMap = new Map();
-    (fetchedOrders || []).forEach(ord => {
-        const uniqueKey = ord._id || ord.id || `${ord.createdAt}-${ord.total}`;
-        if (!uniqueOrdersMap.has(String(uniqueKey))) {
-            uniqueOrdersMap.set(String(uniqueKey), ord);
-        }
-    });
-
-    cachedClientOrders = Array.from(uniqueOrdersMap.values());
-    renderOrdersList(cachedClientOrders, container);
 }
 
 function renderOrdersList(orders, container) {
@@ -703,14 +675,8 @@ function renderOrdersList(orders, container) {
 
 window.downloadClientTicket = function(orderId) {
     let order = cachedClientOrders.find(o => String(o._id || o.id) === String(orderId) || String(o._id || o.id).includes(orderId));
-    
     if (!order) {
-        const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-        order = localOrders.find(o => String(o._id || o.id) === String(orderId));
-    }
-
-    if (!order) {
-        alert('No se encontró la información detallada de este pedido en este dispositivo.');
+        alert('No se encontró la información del pedido.');
         return;
     }
 
@@ -764,207 +730,58 @@ window.downloadClientTicket = function(orderId) {
         doc.setTextColor(219, 39, 119);
         doc.text(`TOTAL: $${(order.total || 0).toFixed(2)}`, 75, finalY + 6, { align: "right" });
 
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7);
-        doc.setTextColor(120, 120, 120);
-        doc.text("¡Gracias por tu compra en Glam Chic!", 40, finalY + 14, { align: "center" });
-
         doc.save(`Ticket_${String(order._id || order.id).substring(0, 6)}.pdf`);
         showToast('¡Ticket descargado con éxito!');
     } catch (error) {
-        console.error("Error al generar el PDF del ticket:", error);
-        alert('Ocurrió un error al generar el PDF del ticket.');
+        console.error("Error al generar ticket PDF:", error);
     }
 };
 
 window.downloadCatalogPDF = async function() {
-    try {
-        if (!window.jspdf || !window.jspdf.jsPDF) {
-            alert('La librería jsPDF aún no se ha cargado.');
-            return;
-        }
+    const products = getStoredProducts();
+    if (!products || products.length === 0) { alert('No hay productos.'); return; }
+    
+    showToast('Generando catálogo PDF...');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-        const products = getStoredProducts();
-        if (!products || products.length === 0) {
-            alert('No hay productos disponibles.');
-            return;
-        }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(219, 39, 119);
+    doc.text("Colección Exclusiva Glam Chic", 105, 20, { align: "center" });
 
-        showToast('Generando catálogo PDF...');
+    let startX = 15, startY = 35, cardWidth = 55, cardHeight = 85, gapX = 10, gapY = 12, itemsPerRow = 3;
 
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        if (startY + cardHeight > 275) { doc.addPage(); startY = 20; }
+        let col = i % itemsPerRow, row = Math.floor(i / itemsPerRow);
+        let x = startX + col * (cardWidth + gapX), y = startY + row * (cardHeight + gapY);
+
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(230, 230, 230);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'FD');
+
+        doc.setFillColor(252, 231, 243);
+        doc.rect(x, y, cardWidth, 40, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(219, 39, 119);
+        doc.text("Glam Chic", x + (cardWidth / 2), y + 22, { align: "center" });
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(22);
-        doc.setTextColor(219, 39, 119);
-        doc.text("Colección Exclusiva", 105, 20, { align: "center" });
-
         doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("Explora nuestra selección de moda y accesorios de alta calidad.", 105, 26, { align: "center" });
-        doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 105, 32, { align: "center" });
+        doc.setTextColor(30, 30, 30);
+        doc.text(doc.splitTextToSize(p.name || '', cardWidth - 8), x + 4, y + 50);
 
-        const getBase64ImageFromURL = (url) => {
-            return new Promise((resolve) => {
-                if (!url) { resolve(null); return; }
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    try {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.width || 300;
-                        canvas.height = img.height || 300;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
-                        resolve(canvas.toDataURL('image/jpeg', 0.85));
-                    } catch (e) {
-                        resolve(null);
-                    }
-                };
-                img.onerror = () => resolve(null);
-                img.src = url;
-            });
-        };
-
-        let startX = 15;
-        let startY = 42;
-        let cardWidth = 55;
-        let cardHeight = 85;
-        let gapX = 10;
-        let gapY = 12;
-        let itemsPerRow = 3;
-
-        for (let i = 0; i < products.length; i++) {
-            const p = products[i];
-            if (startY + cardHeight > 275) {
-                doc.addPage();
-                startY = 20;
-            }
-
-            let col = i % itemsPerRow;
-            let row = Math.floor(i / itemsPerRow);
-            let x = startX + col * (cardWidth + gapX);
-            let y = startY + row * (cardHeight + gapY);
-
-            doc.setFillColor(255, 255, 255);
-            doc.setDrawColor(230, 230, 230);
-            doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'FD');
-
-            let imageLoaded = false;
-            if (p.image) {
-                let base64Img = await getBase64ImageFromURL(p.image);
-                if (base64Img) {
-                    try {
-                        doc.addImage(base64Img, 'JPEG', x, y, cardWidth, 42);
-                        imageLoaded = true;
-                    } catch (e) {
-                        imageLoaded = false;
-                    }
-                }
-            }
-
-            if (!imageLoaded) {
-                doc.setFillColor(252, 231, 243);
-                doc.rect(x, y, cardWidth, 42, 'F');
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(9);
-                doc.setTextColor(219, 39, 119);
-                doc.text("Glam Chic", x + (cardWidth / 2), y + 23, { align: "center" });
-            }
-
-            doc.setFillColor(30, 30, 30);
-            doc.roundedRect(x + cardWidth - 25, y + 4, 22, 6, 2, 2, 'F');
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(7);
-            doc.setTextColor(255, 255, 255);
-            doc.text(p.category || 'General', x + cardWidth - 14, y + 8, { align: "center" });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
-            doc.setTextColor(30, 30, 30);
-            let cleanName = doc.splitTextToSize(p.name || 'Sin nombre', cardWidth - 8);
-            doc.text(cleanName, x + 4, y + 50);
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            doc.setTextColor(120, 120, 120);
-            let cleanDesc = doc.splitTextToSize(p.description || '', cardWidth - 8);
-            doc.text(cleanDesc.slice(0, 2), x + 4, y + 58);
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.setTextColor(219, 39, 119);
-            doc.text(`$${(p.price || 0).toFixed(2)}`, x + 6, y + 76);
-        }
-
-        doc.save("Catalogo_Visual_GlamChic.pdf");
-        showToast('¡Catálogo visual generado con éxito!');
-    } catch (error) {
-        console.error('Error al generar el PDF visual:', error);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(219, 39, 119);
+        doc.text(`$${(p.price || 0).toFixed(2)}`, x + 6, y + 76);
     }
+    doc.save("Catalogo_Visual_GlamChic.pdf");
+    showToast('¡Catálogo generado!');
 };
-
-function setupChatbot() {
-    const toggleBtn = document.getElementById('chatbot-toggle-btn');
-    const closeBtn = document.getElementById('chatbot-close-btn');
-    const windowEl = document.getElementById('chatbot-window');
-    const sendBtn = document.getElementById('chatbot-send-btn');
-    const inputEl = document.getElementById('chatbot-input');
-
-    if (!toggleBtn || !windowEl) return;
-
-    toggleBtn.addEventListener('click', () => windowEl.classList.toggle('hidden'));
-    closeBtn.addEventListener('click', () => windowEl.classList.add('hidden'));
-
-    const handleUserMessage = () => {
-        const text = inputEl.value.trim();
-        if (!text) return;
-        appendChatMessage(text, 'user');
-        inputEl.value = '';
-        setTimeout(() => {
-            const botReply = generateBotResponse(text);
-            appendChatMessage(botReply, 'bot');
-        }, 500);
-    };
-
-    sendBtn.addEventListener('click', handleUserMessage);
-    inputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleUserMessage(); });
-}
-
-function appendChatMessage(text, sender) {
-    const messagesEl = document.getElementById('chatbot-messages');
-    if (!messagesEl) return;
-
-    const div = document.createElement('div');
-    if (sender === 'user') {
-        div.className = 'flex items-end justify-end space-x-2';
-        div.innerHTML = `<div class="bg-pink-600 text-white p-3 rounded-2xl shadow-sm max-w-[80%]">${text}</div>`;
-    } else {
-        div.className = 'flex items-start space-x-2';
-        div.innerHTML = `
-            <div class="w-7 h-7 bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 rounded-full flex items-center justify-center flex-shrink-0 text-xs">
-                <i class="fas fa-robot"></i>
-            </div>
-            <div class="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-3 rounded-2xl shadow-sm max-w-[80%] border border-gray-100 dark:border-gray-700">${text}</div>
-        `;
-    }
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function generateBotResponse(userMsg) {
-    const msg = userMsg.toLowerCase().trim();
-    if (msg.includes('hola') || msg.includes('buenos dias') || msg.includes('buenas tardes')) {
-        return "¡Hola! Qué gusto saludarte en Boutique Glam Chic. 💖 ¿Cómo puedo ayudarte hoy?";
-    } else if (msg.includes('pago') || msg.includes('tarjeta') || msg.includes('efectivo')) {
-        return "💳 Contamos con pagos por PayPal, tarjetas y efectivo contra entrega.";
-    } else if (msg.includes('envio') || msg.includes('tiempo')) {
-        return "🚚 Los envíos tardan de 2 a 3 días hábiles una vez confirmado tu pedido.";
-    } else {
-        return "En Glam Chic nos especializamos en moda exclusiva. ¿Te gustaría conocer nuestros vestidos o métodos de pago?";
-    }
-}
 
 window.loadAdminDashboardData = async function() {
     const tableBody = document.getElementById('admin-orders-table');
@@ -973,260 +790,41 @@ window.loadAdminDashboardData = async function() {
     const pendingOrdersEl = document.getElementById('kpi-pending-orders');
 
     if (!tableBody) return;
-    tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando métricas...</td></tr>`;
 
     try {
         const response = await fetch(`${API_URL}/api/admin/orders`);
         const orders = await response.json();
         if (response.ok) {
             cachedAdminOrders = orders;
-            processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody);
-            return;
+            totalSalesEl.textContent = `$${orders.reduce((s, o) => s + o.total, 0).toFixed(2)}`;
+            totalOrdersEl.textContent = orders.length;
+            pendingOrdersEl.textContent = orders.filter(o => o.status === 'Pendiente').length;
+            renderSalesChart(orders);
+            tableBody.innerHTML = orders.map(o => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="p-4 font-mono text-xs text-pink-600">${o._id}</td>
+                    <td class="p-4 text-xs font-semibold">${o.clientName}</td>
+                    <td class="p-4 text-xs">${o.items.map(i => i.name).join(', ')}</td>
+                    <td class="p-4 text-xs">${o.shippingAddress} (${o.clientPhone})</td>
+                    <td class="p-4 font-bold text-xs">$${o.total.toFixed(2)}</td>
+                    <td class="p-4 text-xs font-semibold">${o.status}</td>
+                </tr>
+            `).join('');
         }
-    } catch (err) {
-        console.log('Cargando órdenes locales...');
-    }
-
-    const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    cachedAdminOrders = localOrders;
-    processAdminOrders(localOrders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody);
-}
-
-function processAdminOrders(orders, totalSalesEl, totalOrdersEl, pendingOrdersEl, tableBody) {
-    const totalOrdersCount = orders.length;
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-    const pendingCount = orders.filter(order => order.status === 'Pendiente' || !order.status).length;
-
-    if (totalSalesEl) totalSalesEl.textContent = `$${totalRevenue.toFixed(2)}`;
-    if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersCount;
-    if (pendingOrdersEl) pendingOrdersEl.textContent = pendingCount;
-
-    renderSalesChart(orders);
-
-    if (orders.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">No hay pedidos registrados todavía.</td></tr>`;
-        return;
-    }
-
-    tableBody.innerHTML = '';
-    orders.forEach(order => {
-        const orderId = order._id || order.id;
-        const itemsSummary = (order.items || []).map(i => `${i.quantity}x ${i.name}`).join(', ');
-        const currentStatus = order.status || 'Pendiente';
-
-        let statusBg = 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
-        if (currentStatus === 'Pagado') statusBg = 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
-        if (currentStatus === 'Enviado') statusBg = 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300';
-        if (currentStatus === 'Entregado') statusBg = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300';
-
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
-        tr.innerHTML = `
-            <td class="p-4 font-mono text-xs text-pink-600 dark:text-pink-400 font-semibold">${orderId}</td>
-            <td class="p-4">
-                <p class="font-semibold text-gray-800 dark:text-gray-200">${order.clientName || 'Cliente'}</p>
-                <p class="text-xs text-gray-500">${order.clientEmail || 'N/D'}</p>
-            </td>
-            <td class="p-4 text-xs text-gray-600 dark:text-gray-300 max-w-xs truncate" title="${itemsSummary}">${itemsSummary}</td>
-            <td class="p-4 text-xs text-gray-600 dark:text-gray-300">
-                <p><strong>Dir:</strong> ${order.shippingAddress || 'N/D'}</p>
-                <p><strong>Pago:</strong> ${order.paymentMethod || 'Efectivo'}</p>
-            </td>
-            <td class="p-4 font-bold text-gray-900 dark:text-white">$${(order.total || 0).toFixed(2)}</td>
-            <td class="p-4 flex items-center space-x-3">
-                <select onchange="updateOrderStatus('${orderId}', this.value)" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-gray-200 dark:border-gray-700 ${statusBg} focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
-                    <option value="Pendiente" ${currentStatus === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                    <option value="Pagado" ${currentStatus === 'Pagado' ? 'selected' : ''}>Pagado</option>
-                    <option value="Enviado" ${currentStatus === 'Enviado' ? 'selected' : ''}>Enviado</option>
-                    <option value="Entregado" ${currentStatus === 'Entregado' ? 'selected' : ''}>Entregado</option>
-                </select>
-                <button onclick="deleteAdminOrder('${orderId}')" class="p-2 bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 rounded-xl hover:bg-red-200 transition-colors" title="Eliminar Pedido">
-                    <i class="fas fa-trash-alt text-xs"></i>
-                </button>
-            </td>
-        `;
-        tableBody.appendChild(tr);
-    });
-}
-
-window.updateOrderStatus = async function(orderId, newStatus) {
-    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    localOrders = localOrders.map(o => (o._id === orderId || o.id == orderId) ? { ...o, status: newStatus } : o);
-    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
-
-    if (cachedAdminOrders) {
-        cachedAdminOrders = cachedAdminOrders.map(o => (o._id === orderId || o.id == orderId) ? { ...o, status: newStatus } : o);
-    }
-
-    try {
-        await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-        });
     } catch (e) {
-        console.log('Sincronización con la nube pendiente, guardado localmente.');
+        console.log('Error cargando panel admin');
     }
-
-    showToast(`¡Estatus actualizado a "${newStatus}"!`);
-    loadAdminDashboardData();
-};
-
-window.deleteAdminOrder = async function(orderId) {
-    if (!confirm(`¿Estás seguro de eliminar permanentemente el pedido ${orderId} de la base de datos en MongoDB?`)) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            throw new Error('No se pudo eliminar el registro en la base de datos remota');
-        }
-
-        showToast('¡Pedido eliminado de MongoDB exitosamente!');
-    } catch (e) {
-        console.log('Error de red al intentar eliminar en la nube:', e);
-        alert('No se pudo conectar con el servidor para eliminar el registro de la base de datos.');
-        return;
-    }
-
-    if (cachedAdminOrders) {
-        cachedAdminOrders = cachedAdminOrders.filter(o => String(o._id || o.id) !== String(orderId));
-    }
-
-    let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-    localOrders = localOrders.filter(o => String(o._id || o.id) !== String(orderId));
-    localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
-
-    loadAdminDashboardData();
-};
-
-window.confirmCashOrder = async function() {
-    const order = getSavedOrder();
-    const session = JSON.parse(localStorage.getItem('glam_user_session'));
-    const address = document.getElementById('shipping-address').value;
-    const phone = document.getElementById('client-phone').value;
-
-    if (order.length === 0) {
-        alert('Tu pedido está vacío.');
-        return;
-    }
-    if (!session) {
-        alert('Por favor, inicia sesión para confirmar tu pedido.');
-        openAuthModal();
-        return;
-    }
-    if (!address || !phone) {
-        alert('Por favor, completa la dirección de envío y el teléfono de contacto.');
-        return;
-    }
-
-    const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    const newOrderRecord = {
-        clientEmail: session.email,
-        clientName: session.name,
-        shippingAddress: address,
-        clientPhone: phone,
-        paymentMethod: 'Efectivo / Pago Directo',
-        items: order,
-        total: total,
-        status: 'Pendiente',
-        createdAt: new Date().toISOString()
-    };
-
-    try {
-        const response = await fetch(`${API_URL}/api/orders`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newOrderRecord)
-        });
-
-        if (!response.ok) throw new Error('Error al registrar en MongoDB');
-        
-        localStorage.removeItem('glam_local_orders');
-    } catch (e) {
-        console.log('Guardando en respaldo local:', e);
-        let localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
-        localOrders.push({ ...newOrderRecord, _id: 'ORD-' + Math.floor(100000 + Math.random() * 900000) });
-        localStorage.setItem('glam_local_orders', JSON.stringify(localOrders));
-    }
-
-    alert('¡Pedido confirmado con éxito!');
-    localStorage.removeItem('glam_saved_order');
-    updateOrderBadge();
-    renderOrderModalContent();
-    document.getElementById('order-modal').classList.add('hidden');
-    
-    if (typeof loadClientOrderHistory === 'function') {
-        loadClientOrderHistory();
-    }
-};
-
-window.exportOrdersToExcel = function() {
-    if (!cachedAdminOrders || cachedAdminOrders.length === 0) { alert('No hay pedidos.'); return; }
-    const dataToExport = cachedAdminOrders.map(o => ({
-        'ID Pedido': o._id || o.id,
-        'Cliente': o.clientName || 'N/D',
-        'Correo': o.clientEmail || 'N/D',
-        'Teléfono': o.clientPhone || 'N/D',
-        'Dirección': o.shippingAddress || 'N/D',
-        'Método de Pago': o.paymentMethod || 'N/D',
-        'Total ($)': o.total,
-        'Estatus': o.status || 'Pendiente',
-        'Fecha': new Date(o.createdAt || Date.now()).toLocaleString()
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Ventas");
-    XLSX.writeFile(workbook, "Reporte_Ventas_GlamChic.xlsx");
-    showToast('¡Reporte de Excel exportado!');
-}
-
-window.exportOrdersToPDF = function() {
-    if (!cachedAdminOrders || cachedAdminOrders.length === 0) { alert('No hay pedidos.'); return; }
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(219, 39, 119);
-    doc.text("Boutique Glam Chic - Reporte de Ventas", 14, 20);
-
-    const tableColumns = ["ID", "Cliente", "Tel", "Pago", "Total", "Estatus"];
-    const tableRows = cachedAdminOrders.map(o => [
-        String(o._id || o.id).substring(0, 8) + '...',
-        o.clientName || 'Cliente',
-        o.clientPhone || 'N/D',
-        o.paymentMethod || 'Efectivo',
-        `$${(o.total || 0).toFixed(2)}`,
-        o.status || 'Pendiente'
-    ]);
-
-    doc.autoTable({ head: [tableColumns], body: tableRows, startY: 30 });
-    doc.save("Reporte_Ventas_GlamChic.pdf");
-    showToast('¡Reporte en PDF exportado!');
 }
 
 function renderSalesChart(orders) {
     const ctx = document.getElementById('salesChart');
     if (!ctx) return;
-    const recentOrders = [...orders].reverse().slice(-6);
-    const labels = recentOrders.map(o => new Date(o.createdAt || Date.now()).toLocaleDateString());
-    const dataValues = recentOrders.map(o => o.total || 0);
-
     if (salesChartInstance) salesChartInstance.destroy();
     salesChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels.length > 0 ? labels : ['Sin datos'],
-            datasets: [{
-                data: dataValues.length > 0 ? dataValues : [0],
-                backgroundColor: 'rgba(219, 39, 119, 0.7)',
-                borderColor: 'rgb(219, 39, 119)',
-                borderWidth: 2,
-                borderRadius: 8
-            }]
+            labels: orders.map(o => new Date(o.createdAt).toLocaleDateString()),
+            datasets: [{ data: orders.map(o => o.total), backgroundColor: 'rgba(219, 39, 119, 0.7)' }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
@@ -1239,18 +837,14 @@ function setupOrderModal() {
     const whatsappBtn = document.getElementById('whatsapp-btn');
 
     if (!modal || !openBtn) return;
-    openBtn.addEventListener('click', () => {
-        renderOrderModalContent();
-        modal.classList.remove('hidden');
-        renderPayPalButton();
-    });
-    if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    openBtn.addEventListener('click', () => { renderOrderModalContent(); modal.classList.remove('hidden'); });
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
 
     if (whatsappBtn) {
         whatsappBtn.addEventListener('click', () => {
             const order = getSavedOrder();
             if (order.length === 0) { alert('Pedido vacío.'); return; }
-            let message = "Hola, me gustaría solicitar los siguientes artículos de Boutique Glam Chic:\n\n";
+            let message = "Hola, me gustaría solicitar los siguientes artículos:\n\n";
             let total = 0;
             order.forEach(item => {
                 message += `- ${item.quantity}x ${item.name} ($${(item.price * item.quantity).toFixed(2)})\n`;
@@ -1262,103 +856,78 @@ function setupOrderModal() {
     }
 }
 
-function renderPayPalButton() {
-    const container = document.getElementById('paypal-button-container');
-    if (!container) return;
-    container.innerHTML = '';
+window.confirmCashOrder = async function() {
+    const order = getSavedOrder();
+    const session = JSON.parse(localStorage.getItem('glam_user_session'));
+    const address = document.getElementById('shipping-address').value;
+    const phone = document.getElementById('client-phone').value;
 
-    if (typeof paypal === 'undefined') return;
+    if (order.length === 0 || !session || !address || !phone) {
+        alert('Completa todos los datos y asegúrate de iniciar sesión.');
+        return;
+    }
 
-    paypal.Buttons({
-        createOrder: (data, actions) => {
-            const order = getSavedOrder();
-            const session = JSON.parse(localStorage.getItem('glam_user_session'));
-            const address = document.getElementById('shipping-address').value;
-            const phone = document.getElementById('client-phone').value;
+    const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const newOrder = {
+        clientEmail: session.email,
+        clientName: session.name,
+        shippingAddress: address,
+        clientPhone: phone,
+        paymentMethod: 'Efectivo contra entrega',
+        items: order,
+        total: total,
+        status: 'Pendiente'
+    };
 
-            if (order.length === 0) throw new Error('Carrito vacío');
-            if (!session) { alert('Inicia sesión.'); openAuthModal(); throw new Error('Sin sesión'); }
-            if (!address || !phone) { alert('Completa dirección y teléfono.'); throw new Error('Faltan datos'); }
-
-            const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            return actions.order.create({ purchase_units: [{ amount: { value: total.toFixed(2) } }] });
-        },
-        onApprove: async (data, actions) => {
-            return actions.order.capture().then(async (details) => {
-                const order = getSavedOrder();
-                const session = JSON.parse(localStorage.getItem('glam_user_session'));
-                const address = document.getElementById('shipping-address').value;
-                const phone = document.getElementById('client-phone').value;
-                const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-                const newOrderRecord = {
-                    clientEmail: session.email,
-                    clientName: session.name,
-                    shippingAddress: address,
-                    clientPhone: phone,
-                    paymentMethod: 'PayPal (ID: ' + details.id + ')',
-                    items: order,
-                    total: total,
-                    status: 'Pendiente',
-                    createdAt: new Date().toISOString()
-                };
-
-                try {
-                    await fetch(`${API_URL}/api/orders`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newOrderRecord)
-                    });
-                } catch (e) {}
-
-                alert(`¡Pago completado con éxito! Pedido registrado.`);
-                localStorage.removeItem('glam_saved_order');
-                updateOrderBadge();
-                renderOrderModalContent();
-                document.getElementById('order-modal').classList.add('hidden');
-            });
-        }
-    }).render('#paypal-button-container');
-}
+    try {
+        await fetch(`${API_URL}/api/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newOrder)
+        });
+        alert('¡Pedido confirmado con éxito!');
+        localStorage.removeItem('glam_saved_order');
+        updateOrderBadge();
+        document.getElementById('order-modal').classList.add('hidden');
+        if (typeof loadClientOrderHistory === 'function') loadClientOrderHistory();
+    } catch (e) {
+        alert('Error al procesar pedido.');
+    }
+};
 
 function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
     const htmlElement = document.documentElement;
-    if (!toggleBtn || !themeIcon) return;
+    if (!toggleBtn) return;
 
-    const applyTheme = (isDark) => {
-        if (isDark) {
-            htmlElement.classList.add('dark');
-            themeIcon.className = 'fas fa-sun text-yellow-400';
-            localStorage.setItem('glam_theme', 'dark');
-        } else {
-            htmlElement.classList.remove('dark');
-            themeIcon.className = 'fas fa-moon text-gray-700';
-            localStorage.setItem('glam_theme', 'light');
-        }
-    };
-    applyTheme((localStorage.getItem('glam_theme') || 'light') === 'dark');
-    toggleBtn.addEventListener('click', () => applyTheme(!htmlElement.classList.contains('dark')));
+    toggleBtn.addEventListener('click', () => {
+        htmlElement.classList.toggle('dark');
+        themeIcon.className = htmlElement.classList.contains('dark') ? 'fas fa-sun text-yellow-400' : 'fas fa-moon text-gray-700';
+    });
 }
 
 function setupFilters() {
     const searchInput = document.getElementById('search-input');
     const categoryFilter = document.getElementById('category-filter');
-    if (!searchInput || !categoryFilter) return;
+    if (!searchInput) return;
 
     const filterHandler = () => {
         const query = searchInput.value.toLowerCase();
-        const selectedCategory = categoryFilter.value;
-        const filtered = getStoredProducts().filter(product => {
-            const matchesQuery = product.name.toLowerCase().includes(query) || (product.description && product.description.toLowerCase().includes(query));
-            const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-            return matchesQuery && matchesCategory;
-        });
+        const cat = categoryFilter.value;
+        const filtered = getStoredProducts().filter(p => 
+            (p.name.toLowerCase().includes(query)) && (cat === 'all' || p.category === cat)
+        );
         renderCatalog(filtered);
     };
     searchInput.addEventListener('input', filterHandler);
     categoryFilter.addEventListener('change', filterHandler);
+}
+
+function setupChatbot() {
+    const toggleBtn = document.getElementById('chatbot-toggle-btn');
+    if (!toggleBtn) return;
+    // Opcional: chatbot asistente interactivo
 }
 
 function monitorConnection() {

@@ -702,10 +702,15 @@ function renderOrdersList(orders, container) {
 }
 
 window.downloadClientTicket = function(orderId) {
-    const order = cachedClientOrders.find(o => String(o._id || o.id) === String(orderId) || String(o._id || o.id).includes(orderId));
+    let order = cachedClientOrders.find(o => String(o._id || o.id) === String(orderId) || String(o._id || o.id).includes(orderId));
     
     if (!order) {
-        alert('No se encontró la información detallada de este pedido.');
+        const localOrders = JSON.parse(localStorage.getItem('glam_local_orders')) || [];
+        order = localOrders.find(o => String(o._id || o.id) === String(orderId));
+    }
+
+    if (!order) {
+        alert('No se encontró la información detallada de este pedido en este dispositivo.');
         return;
     }
 
@@ -725,7 +730,7 @@ window.downloadClientTicket = function(orderId) {
 
         doc.setFontSize(8);
         doc.setTextColor(50, 50, 50);
-        doc.text(`Folio ID: ${String(order._id || order.id).substring(0, 10)}...`, 5, 24);
+        doc.text(`Folio ID: ${String(order._id || order.id).substring(0, 12)}...`, 5, 24);
         doc.text(`Fecha: ${new Date(order.createdAt || Date.now()).toLocaleString()}`, 5, 29);
         doc.text(`Cliente: ${order.clientName || 'Cliente'}`, 5, 34);
         doc.text(`Tel: ${order.clientPhone || 'N/D'}`, 5, 39);

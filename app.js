@@ -17,6 +17,7 @@ async function initializeApp() {
     await fetchAndRenderBanner();
     checkUserSession();
     setupProductForm();
+    setupEditProductForm();
     setupBannerAdminForm();
     setupThemeToggle();
     setupFilters();
@@ -433,7 +434,10 @@ function setupBannerAdminForm() {
     const form = document.getElementById('banner-admin-form');
     if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const payload = {
             title: document.getElementById('banner-title').value.trim(),
@@ -443,6 +447,7 @@ function setupBannerAdminForm() {
         };
 
         try {
+            showToast('Guardando anuncio...');
             const response = await fetch(`${API_URL}/api/admin/banner`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -450,12 +455,14 @@ function setupBannerAdminForm() {
             });
 
             if (response.ok) {
-                showToast('¡Anuncio y spot publicitario actualizados!');
-                fetchAndRenderBanner();
-                form.reset();
+                showToast('¡Anuncio y spot publicitario actualizados con éxito!');
+                await fetchAndRenderBanner();
+                newForm.reset();
+            } else {
+                alert('Error al actualizar el anuncio.');
             }
         } catch (err) {
-            alert('Error al actualizar anuncio.');
+            alert('No se pudo conectar con el servidor.');
         }
     });
 }
@@ -469,58 +476,6 @@ window.deleteProduct = async function(productId) {
     } catch (e) {
         alert('Error al eliminar.');
     }
-}
-
-window.switchClientView = function(view) {
-    const productsSection = document.getElementById('products-section');
-    const historySection = document.getElementById('client-history-section');
-    const catalogBtn = document.getElementById('tab-catalog-btn');
-    const historyBtn = document.getElementById('tab-history-btn');
-
-    if (view === 'catalog') {
-        productsSection.classList.remove('hidden');
-        historySection.classList.add('hidden');
-        catalogBtn.className = "px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm";
-        historyBtn.className = "px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 border border-gray-200";
-    } else {
-        productsSection.classList.add('hidden');
-        historySection.classList.remove('hidden');
-        historyBtn.className = "px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm";
-        catalogBtn.className = "px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 border border-gray-200";
-        loadClientOrderHistory();
-    }
-}
-
-async function loadClientOrderHistory() {
-    const container = document.getElementById('client-orders-container');
-    const session = JSON.parse(localStorage.getItem('glam_user_session'));
-    if (!container || !session) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/orders/client/${encodeURIComponent(session.email)}`);
-        if (response.ok) {
-            cachedClientOrders = await response.json();
-            renderOrdersList(cachedClientOrders, container);
-        }
-    } catch (err) {
-        container.innerHTML = '<p class="text-center text-gray-400">Error al cargar pedidos.</p>';
-    }
-}
-
-function renderOrdersList(orders, container) {
-    if (orders.length === 0) {
-        container.innerHTML = '<p class="text-center text-gray-400">No tienes pedidos aún.</p>';
-        return;
-    }
-    container.innerHTML = orders.map(order => `
-        <div class="bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 shadow-sm">
-            <div class="flex justify-between pb-3 mb-3 border-b border-gray-200 dark:border-gray-700 text-xs">
-                <span class="font-mono text-pink-600">ID: ${order._id}</span>
-                <span class="font-bold">$${order.total.toFixed(2)}</span>
-            </div>
-            <p class="text-xs text-gray-500">Estatus: ${order.status}</p>
-        </div>
-    `).join('');
 }
 
 window.loadAdminDashboardData = async function() {
@@ -578,44 +533,6 @@ function setupOrderModal() {
     openBtn.addEventListener('click', () => { renderOrderModalContent(); modal.classList.remove('hidden'); });
     closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
 }
-
-window.confirmCashOrder = async function() {
-    const order = getSavedOrder();
-    const session = JSON.parse(localStorage.getItem('glam_user_session'));
-    const address = document.getElementById('shipping-address').value;
-    const phone = document.getElementById('client-phone').value;
-
-    if (order.length === 0 || !session || !address || !phone) {
-        alert('Completa todos los datos y asegúrate de iniciar sesión.');
-        return;
-    }
-
-    const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const newOrder = {
-        clientEmail: session.email,
-        clientName: session.name,
-        shippingAddress: address,
-        clientPhone: phone,
-        paymentMethod: 'Efectivo',
-        items: order,
-        total: total,
-        status: 'Pendiente'
-    };
-
-    try {
-        await fetch(`${API_URL}/api/orders`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newOrder)
-        });
-        alert('¡Pedido confirmado con éxito!');
-        localStorage.removeItem('glam_saved_order');
-        updateOrderBadge();
-        document.getElementById('order-modal').classList.add('hidden');
-    } catch (e) {
-        alert('Error al procesar pedido.');
-    }
-};
 
 function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');

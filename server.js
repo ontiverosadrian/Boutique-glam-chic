@@ -167,7 +167,7 @@ app.delete('/api/admin/orders/:id', async (req, res) => {
     }
 });
 
-// Rutas API - Anuncios y Videos Publicitarios
+// Rutas API - Anuncios y Videos Publicitarios (Gestionables por Admin)
 app.get('/api/banner', async (req, res) => {
     try {
         let banner = await Banner.findOne({ active: true }).sort({ createdAt: -1 });
@@ -188,11 +188,17 @@ app.get('/api/banner', async (req, res) => {
 app.post('/api/admin/banner', async (req, res) => {
     try {
         await Banner.updateMany({}, { active: false });
-        const newBanner = new Banner(req.body);
+        const newBanner = new Banner({
+            title: req.body.title,
+            subtitle: req.body.subtitle,
+            badge: req.body.badge || '✨ Promoción Especial',
+            videoUrl: req.body.videoUrl,
+            active: true
+        });
         await newBanner.save();
         res.status(201).json(newBanner);
     } catch (err) {
-        res.status(500).json({ error: 'Error al guardar el banner' });
+        res.status(500).json({ error: 'Error al guardar el banner publicitario' });
     }
 });
 

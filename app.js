@@ -394,8 +394,8 @@ function checkUserSession() {
     if (session) {
         container.innerHTML = `
             <div class="flex items-center space-x-3">
-                <span class="text-xs font-semibold px-3 py-1.5 bg-pink-100 text-pink-700 rounded-xl">${session.name} (${session.role})</span>
-                <button onclick="logoutUser()" class="p-2.5 rounded-xl bg-gray-100 hover:bg-red-100 hover:text-red-600 transition-colors"><i class="fas fa-sign-out-alt"></i></button>
+                <span class="text-xs font-semibold px-3 py-1.5 bg-pink-100 text-pink-700 rounded-xl">${session.name} (${session.role || 'cliente'})</span>
+                <button onclick="logoutUser()" class="p-2.5 rounded-xl bg-gray-100 hover:bg-red-100 hover:text-red-600 transition-colors" title="Cerrar Sesión"><i class="fas fa-sign-out-alt"></i></button>
             </div>
         `;
 
@@ -411,7 +411,9 @@ function checkUserSession() {
         }
     } else {
         container.innerHTML = `<button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium flex items-center space-x-2"><i class="fas fa-user"></i> <span>Iniciar Sesión</span></button>`;
-        document.getElementById('open-auth-btn').addEventListener('click', openAuthModal);
+        const btn = document.getElementById('open-auth-btn');
+        if (btn) btn.addEventListener('click', openAuthModal);
+        
         if (catalogView) catalogView.classList.remove('hidden');
         if (adminDashboard) adminDashboard.classList.add('hidden');
         if (clientNavTabs) clientNavTabs.classList.add('hidden');
@@ -583,7 +585,7 @@ window.loadAdminDashboardData = async function() {
 
             tableBody.innerHTML = orders.map(o => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td class="p-4 font-mono text-xs text-pink-600">${o._id.slice(-6)}</td>
+                    <td class="p-4 font-mono text-xs text-pink-600">${o._id ? o._id.slice(-6) : 'S/N'}</td>
                     <td class="p-4 text-xs font-semibold">${o.clientName}</td>
                     <td class="p-4 text-xs">${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</td>
                     <td class="p-4 text-xs">${o.shippingAddress}</td>
@@ -768,8 +770,10 @@ async function loadClientOrders() {
 
     try {
         const response = await fetch(`${API_URL}/api/orders/client/${session.email}`);
+        if (!response.ok) throw new Error('Error al conectar');
+
         const orders = await response.json();
-        if (orders.length === 0) {
+        if (!Array.isArray(orders) || orders.length === 0) {
             container.innerHTML = `<p class="text-xs text-gray-400">No tienes pedidos registrados todavía.</p>`;
             return;
         }
@@ -777,18 +781,18 @@ async function loadClientOrders() {
         container.innerHTML = orders.map(o => `
             <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs">
                 <div>
-                    <span class="font-bold text-pink-600">Pedido #${o._id.slice(-6)}</span>
-                    <p class="text-gray-500 mt-1">${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>
-                    <span class="text-[10px] text-gray-400">Envío a: ${o.shippingAddress} | Pago: ${o.paymentMethod}</span>
+                    <span class="font-bold text-pink-600">Pedido #${o._id ? o._id.slice(-6) : 'S/N'}</span>
+                    <p class="text-gray-500 mt-1">${o.items ? o.items.map(i => `${i.name} (x${i.quantity})`).join(', ') : ''}</p>
+                    <span class="text-[10px] text-gray-400">Envío a: ${o.shippingAddress || 'N/A'} | Pago: ${o.paymentMethod || 'Efectivo'}</span>
                 </div>
                 <div class="text-right">
-                    <span class="font-extrabold text-sm">$${o.total.toFixed(2)}</span>
-                    <span class="block px-2.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 mt-1">${o.status}</span>
+                    <span class="font-extrabold text-sm">$${o.total ? o.total.toFixed(2) : '0.00'}</span>
+                    <span class="block px-2.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 mt-1">${o.status || 'Pendiente'}</span>
                 </div>
             </div>
         `).join('');
     } catch (e) {
-        container.innerHTML = `<p class="text-xs text-red-400">Error al cargar historial.</p>`;
+        container.innerHTML = `<p class="text-xs text-gray-400">Tus pedidos recientes se mostrarán aquí cuando el servidor responda.</p>`;
     }
 }
 

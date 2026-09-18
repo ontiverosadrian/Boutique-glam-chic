@@ -15,6 +15,7 @@ async function initializeApp() {
     await fetchAndRenderBanner();
     checkUserSession();
     setupProductForm();
+    setupEditProductForm();
     setupBannerAdminForm();
     setupCardPaymentForm();
     setupThemeToggle();
@@ -160,14 +161,73 @@ function renderAdminProductsTable(products) {
                         ${isAvailable ? 'Disponible' : 'Agotado'}
                     </span>
                 </td>
-                <td class="p-4 text-center">
-                    <button onclick="deleteProduct('${prodId}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors">
+                <td class="p-4 text-center space-x-2">
+                    <button onclick="openEditProductModal('${prodId}')" class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold hover:bg-blue-200 transition-colors" title="Editar producto">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteProduct('${prodId}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors" title="Eliminar producto">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </td>
             </tr>
         `;
     }).join('');
+}
+
+window.openEditProductModal = function(productId) {
+    const products = getStoredProducts();
+    const product = products.find(p => (p._id === productId || p.id == productId));
+    if (!product) return;
+
+    document.getElementById('edit-prod-id').value = product._id || product.id;
+    document.getElementById('edit-prod-name').value = product.name;
+    document.getElementById('edit-prod-category').value = product.category;
+    document.getElementById('edit-prod-price').value = product.price;
+    document.getElementById('edit-prod-image').value = product.image;
+    document.getElementById('edit-prod-available').value = product.available !== false ? 'true' : 'false';
+    document.getElementById('edit-prod-desc').value = product.description || '';
+
+    document.getElementById('edit-product-modal').classList.remove('hidden');
+};
+
+window.closeEditProductModal = function() {
+    document.getElementById('edit-product-modal').classList.add('hidden');
+};
+
+function setupEditProductForm() {
+    const form = document.getElementById('edit-product-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prodId = document.getElementById('edit-prod-id').value;
+        const updatedProd = {
+            name: document.getElementById('edit-prod-name').value.trim(),
+            category: document.getElementById('edit-prod-category').value,
+            price: parseFloat(document.getElementById('edit-prod-price').value),
+            image: document.getElementById('edit-prod-image').value.trim(),
+            available: document.getElementById('edit-prod-available').value === 'true',
+            description: document.getElementById('edit-prod-desc').value.trim()
+        };
+
+        try {
+            const response = await fetch(`${API_URL}/api/admin/products/${prodId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedProd)
+            });
+
+            if (response.ok) {
+                showToast('¡Producto actualizado con éxito!');
+                closeEditProductModal();
+                await fetchAndRenderProducts();
+            } else {
+                alert('Error al actualizar el producto en el servidor.');
+            }
+        } catch (err) {
+            alert('No se pudo conectar con el servidor.');
+        }
+    });
 }
 
 window.openProductDetail = function(productId) {

@@ -432,36 +432,59 @@ async function processOrderWithPaymentMethod(method) {
 }
 
 window.downloadCatalogPDF = function() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(219, 39, 119);
-    doc.text("Boutique Glam Chic - Catálogo Exclusivo", 14, 20);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 28);
+    try {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) {
+            alert("La librería de PDF aún se está cargando. Intenta de nuevo en un segundo.");
+            return;
+        }
 
-    const products = getStoredProducts();
-    const tableData = products.map(p => [
-        p.name, 
-        p.category, 
-        `$${p.price.toFixed(2)}`, 
-        p.available !== false ? 'Disponible' : 'Agotado'
-    ]);
+        const doc = new jsPDF();
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.setTextColor(219, 39, 119);
+        doc.text("Boutique Glam Chic", 14, 20);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Catálogo Exclusivo de Prendas y Accesorios", 14, 27);
+        
+        doc.setFontSize(9);
+        doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 34);
 
-    doc.autoTable({
-        startY: 35,
-        head: [['Prenda / Accesorio', 'Categoría', 'Precio', 'Estatus']],
-        body: tableData,
-        headStyles: { fillColor: [219, 39, 119] },
-        theme: 'striped'
-    });
+        const products = getStoredProducts();
+        if (!products || products.length === 0) {
+            alert("No hay productos en el catálogo para exportar.");
+            return;
+        }
 
-    doc.save("Catalogo_Boutique_Glam_Chic.pdf");
-    showToast("¡Catálogo PDF descargado con éxito!");
+        const tableData = products.map(p => [
+            p.name || 'Sin nombre', 
+            p.category || 'General', 
+            `$${(p.price || 0).toFixed(2)}`, 
+            p.available !== false ? 'Disponible' : 'Agotado'
+        ]);
+
+        doc.autoTable({
+            startY: 40,
+            head: [['Prenda / Accesorio', 'Categoría', 'Precio', 'Estatus']],
+            body: tableData,
+            headStyles: { fillColor: [219, 39, 119], textColor: [255, 255, 255], fontStyle: 'bold' },
+            bodyStyles: { textColor: [50, 50, 50] },
+            alternateRowStyles: { fillColor: [253, 242, 248] },
+            theme: 'striped',
+            margin: { left: 14, right: 14 }
+        });
+
+        doc.save("Catalogo_Boutique_Glam_Chic.pdf");
+        showToast("¡Catálogo PDF descargado con éxito!");
+
+    } catch (error) {
+        console.error("Error al generar PDF:", error);
+        alert("Ocurrió un error al generar el PDF.");
+    }
 };
 
 function showToast(message) {

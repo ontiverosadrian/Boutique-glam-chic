@@ -1,40 +1,50 @@
-const CACHE_NAME = 'glam-chic-v3';
+const CACHE_NAME = 'glam-chic-v2';
 const assetsToCache = [
   '/',
   '/index.html',
   '/app.js'
 ];
 
-self.addEventListener('install', (e) => {
-  self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(assetsToCache).catch(err => console.log('Cache skip:', err));
-    })
-  );
-});
-
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
+// Instalación del Service Worker
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => {
+            return cache.addAll(assetsToCache);
         })
-      );
-    })
-  );
+    );
+    self.skipWaiting();
 });
 
-self.addEventListener('fetch', (e) => {
-  if (!e.request.url.startsWith(self.location.origin)) {
-    return;
-  }
-  e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
-    })
-  );
+// Activación
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) => {
+            return Promise.all(
+                keys.map((key) => {
+                    if (key !== CACHE_NAME) {
+                        return caches.delete(key);
+                    }
+                })
+            );
+        })
+    );
+    self.clientsClaim();
+});
+
+// Intercepción de solicitudes (Estrategia segura: solo cachear recursos locales)
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
+    
+    // Ignorar solicitudes externas (como CDNs de Tailwind o fuentes) para evitar errores de CORS
+    if (url.origin !== location.origin) {
+        return;
+    }
+
+    event.respondWith(
+        caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || fetch(event.request).catch(() => {
+                // Si falla la red y es una página, puedes retornar index.html opcionalmente
+            });
+        })
+    );
 });

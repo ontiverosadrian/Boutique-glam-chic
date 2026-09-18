@@ -1,19 +1,20 @@
 {
   "name": "Boutique Glam Chic",
   "short_name": "Glam Chic",
-  "start_url": "/",
+  "start_url": "/Boutique-glam-chic/",
+  "scope": "/Boutique-glam-chic/",
   "display": "standalone",
   "background_color": "#030712",
   "theme_color": "#db2777",
   "description": "Moda y Accesorios Exclusivos",
   "icons": [
     {
-      "src": "images/icon-152.png",
+      "src": "/Boutique-glam-chic/images/icon-152.png",
       "sizes": "152x152",
       "type": "image/png"
     },
     {
-      "src": "images/icon-192.png",
+      "src": "/Boutique-glam-chic/images/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     }

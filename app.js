@@ -458,17 +458,21 @@ window.downloadCatalogPDF = async function() {
             return;
         }
 
-        const getBase64ImageFromURL = (url) => {
+        const getImageDimensions = (url) => {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
                 img.onload = function() {
                     const canvas = document.createElement("canvas");
-                    canvas.width = 150;
-                    canvas.height = 150;
+                    canvas.width = img.width;
+                    canvas.height = img.height;
                     const ctx = canvas.getContext("2d");
-                    ctx.drawImage(img, 0, 0, 150, 150);
-                    resolve(canvas.toDataURL("image/jpeg"));
+                    ctx.drawImage(img, 0, 0);
+                    resolve({
+                        dataUrl: canvas.toDataURL("image/jpeg", 0.9),
+                        width: img.width,
+                        height: img.height
+                    });
                 };
                 img.onerror = function() {
                     resolve(null);
@@ -500,14 +504,26 @@ window.downloadCatalogPDF = async function() {
             doc.setDrawColor(226, 232, 240);
             doc.roundedRect(currentX, currentY, cardWidth, cardHeight, 3, 3, "FD");
 
+            let boxX = currentX + 4;
+            let boxY = currentY + 4;
+            let boxW = cardWidth - 8;
+            let boxH = 42;
+
             if (p.image) {
                 try {
-                    const base64Img = await getBase64ImageFromURL(p.image);
-                    if (base64Img) {
-                        doc.addImage(base64Img, 'JPEG', currentX + 4, currentY + 4, cardWidth - 8, 42);
+                    const imgInfo = await getImageDimensions(p.image);
+                    if (imgInfo) {
+                        let ratio = Math.min(boxW / imgInfo.width, boxH / imgInfo.height);
+                        let finalW = imgInfo.width * ratio;
+                        let finalH = imgInfo.height * ratio;
+                        
+                        let offsetX = boxX + (boxW - finalW) / 2;
+                        let offsetY = boxY + (boxH - finalH) / 2;
+
+                        doc.addImage(imgInfo.dataUrl, 'JPEG', offsetX, offsetY, finalW, finalH);
                     }
                 } catch (err) {
-                    console.log("Error cargando imagen:", err);
+                    console.log("Error ajustando imagen:", err);
                 }
             }
 

@@ -435,24 +435,22 @@ window.downloadCatalogPDF = function() {
     try {
         const { jsPDF } = window.jspdf || {};
         if (!jsPDF) {
-            alert("La librería de PDF aún se está cargando. Intenta de nuevo en un segundo.");
+            alert("La librería de PDF aún se está cargando. Intenta de nuevo.");
             return;
         }
 
         const doc = new jsPDF();
         
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(20);
+        doc.setFontSize(18);
         doc.setTextColor(219, 39, 119);
         doc.text("Boutique Glam Chic", 14, 20);
         
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text("Catálogo Exclusivo de Prendas y Accesorios", 14, 27);
-        
-        doc.setFontSize(9);
-        doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 34);
+        doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 33);
 
         const products = getStoredProducts();
         if (!products || products.length === 0) {
@@ -460,22 +458,44 @@ window.downloadCatalogPDF = function() {
             return;
         }
 
-        const tableData = products.map(p => [
-            p.name || 'Sin nombre', 
-            p.category || 'General', 
-            `$${(p.price || 0).toFixed(2)}`, 
-            p.available !== false ? 'Disponible' : 'Agotado'
-        ]);
+        let y = 45;
+        
+        doc.setFillColor(219, 39, 119);
+        doc.rect(14, y - 5, 182, 8, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.text("Prenda / Accesorio", 16, y);
+        doc.text("Categoría", 100, y);
+        doc.text("Precio", 140, y);
+        doc.text("Estatus", 170, y);
 
-        doc.autoTable({
-            startY: 40,
-            head: [['Prenda / Accesorio', 'Categoría', 'Precio', 'Estatus']],
-            body: tableData,
-            headStyles: { fillColor: [219, 39, 119], textColor: [255, 255, 255], fontStyle: 'bold' },
-            bodyStyles: { textColor: [50, 50, 50] },
-            alternateRowStyles: { fillColor: [253, 242, 248] },
-            theme: 'striped',
-            margin: { left: 14, right: 14 }
+        y += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(50, 50, 50);
+
+        products.forEach((p, index) => {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+
+            if (index % 2 === 0) {
+                doc.setFillColor(253, 242, 248);
+                doc.rect(14, y - 4, 182, 7, "F");
+            }
+
+            const name = p.name || 'Sin nombre';
+            const category = p.category || 'General';
+            const price = `$${(p.price || 0).toFixed(2)}`;
+            const status = p.available !== false ? 'Disponible' : 'Agotado';
+
+            doc.text(name.substring(0, 40), 16, y);
+            doc.text(category, 100, y);
+            doc.text(price, 140, y);
+            doc.text(status, 170, y);
+
+            y += 8;
         });
 
         doc.save("Catalogo_Boutique_Glam_Chic.pdf");

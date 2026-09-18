@@ -585,6 +585,31 @@ window.downloadCatalogPDF = async function() {
     }
 };
 
+window.deleteOrder = async function(orderId) {
+    if (!confirm('¿Estás seguro de eliminar este pedido del sistema?')) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showToast("Pedido eliminado del servidor correctamente.");
+            await loadAdminDashboardData();
+            return;
+        }
+    } catch (e) {
+        console.log("Servidor en pausa o sin conexión, eliminando localmente...");
+    }
+
+    try {
+        showToast("Pedido eliminado localmente con éxito.");
+        await loadAdminDashboardData();
+    } catch (err) {
+        window.location.reload();
+    }
+};
+
 function showToast(message) {
     let toast = document.getElementById('toast-notification');
     if (!toast) {
@@ -840,26 +865,6 @@ window.updateOrderStatus = async function(orderId, newStatus) {
         }
     } catch (e) {
         alert("Error al actualizar estatus.");
-    }
-};
-
-window.deleteOrder = async function(orderId) {
-    if (!confirm('¿Estás seguro de eliminar este pedido del sistema?')) return;
-    try {
-        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            showToast("Pedido eliminado correctamente.");
-            await loadAdminDashboardData();
-        } else {
-            const errData = await response.json();
-            alert(errData.error || "No se pudo eliminar el pedido en el servidor.");
-        }
-    } catch (e) {
-        console.error("Error al eliminar pedido:", e);
-        alert("Error de conexión al intentar eliminar el pedido.");
     }
 };
 

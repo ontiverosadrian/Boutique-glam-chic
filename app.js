@@ -442,15 +442,15 @@ window.downloadCatalogPDF = async function() {
         const doc = new jsPDF();
         
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(18);
+        doc.setFontSize(20);
         doc.setTextColor(219, 39, 119);
-        doc.text("Boutique Glam Chic", 14, 20);
+        doc.text("Boutique Glam Chic", 14, 18);
         
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
-        doc.text("Catálogo Exclusivo con Imágenes", 14, 27);
-        doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 33);
+        doc.text("Catálogo Exclusivo de Prendas y Accesorios", 14, 24);
+        doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 29);
 
         const products = getStoredProducts();
         if (!products || products.length === 0) {
@@ -458,31 +458,16 @@ window.downloadCatalogPDF = async function() {
             return;
         }
 
-        let y = 45;
-        
-        doc.setFillColor(219, 39, 119);
-        doc.rect(14, y - 5, 182, 8, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(255, 255, 255);
-        doc.text("Imagen", 18, y);
-        doc.text("Prenda / Accesorio", 45, y);
-        doc.text("Categoría", 110, y);
-        doc.text("Precio", 145, y);
-        doc.text("Estatus", 170, y);
-
-        y += 10;
-
         const getBase64ImageFromURL = (url) => {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
                 img.onload = function() {
                     const canvas = document.createElement("canvas");
-                    canvas.width = 40;
-                    canvas.height = 40;
+                    canvas.width = 150;
+                    canvas.height = 150;
                     const ctx = canvas.getContext("2d");
-                    ctx.drawImage(img, 0, 0, 40, 40);
+                    ctx.drawImage(img, 0, 0, 150, 150);
                     resolve(canvas.toDataURL("image/jpeg"));
                 };
                 img.onerror = function() {
@@ -492,49 +477,74 @@ window.downloadCatalogPDF = async function() {
             });
         };
 
+        let startX = 14;
+        let startY = 38;
+        let cardWidth = 88;
+        let cardHeight = 85;
+        let gapX = 10;
+        let gapY = 12;
+
         for (let i = 0; i < products.length; i++) {
             const p = products[i];
 
-            if (y > 260) {
+            if (startY + cardHeight > 280) {
                 doc.addPage();
-                y = 20;
+                startY = 20;
             }
 
-            if (i % 2 === 0) {
-                doc.setFillColor(253, 242, 248);
-                doc.rect(14, y - 6, 182, 16, "F");
-            }
+            let col = i % 2;
+            let currentX = startX + col * (cardWidth + gapX);
+            let currentY = startY + Math.floor(i / 2) * (cardHeight + gapY);
+
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(226, 232, 240);
+            doc.roundedRect(currentX, currentY, cardWidth, cardHeight, 3, 3, "FD");
 
             if (p.image) {
                 try {
                     const base64Img = await getBase64ImageFromURL(p.image);
                     if (base64Img) {
-                        doc.addImage(base64Img, 'JPEG', 15, y - 5, 12, 12);
+                        doc.addImage(base64Img, 'JPEG', currentX + 4, currentY + 4, cardWidth - 8, 42);
                     }
                 } catch (err) {
-                    console.log("No se pudo incrustar imagen externa:", err);
+                    console.log("Error cargando imagen:", err);
                 }
             }
 
+            doc.setFillColor(219, 39, 119);
+            doc.roundedRect(currentX + cardWidth - 32, currentY + 6, 28, 6, 2, 2, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(255, 255, 255);
+            doc.text((p.category || 'General').substring(0, 12), currentX + cardWidth - 30, currentY + 10);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(30, 41, 59);
+            doc.text((p.name || 'Sin nombre').substring(0, 28), currentX + 6, currentY + 54);
+
             doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(8);
+            doc.setTextColor(100, 116, 139);
+            const desc = p.description || (p.available !== false ? 'Disponible en boutique' : 'Agotado');
+            doc.text(desc.substring(0, 38), currentX + 6, currentY + 61);
 
-            const name = p.name || 'Sin nombre';
-            const category = p.category || 'General';
-            const price = `$${(p.price || 0).toFixed(2)}`;
-            const status = p.available !== false ? 'Disponible' : 'Agotado';
+            doc.setDrawColor(226, 232, 240);
+            doc.line(currentX + 6, currentY + 68, currentX + cardWidth - 6, currentY + 68);
 
-            doc.text(name.substring(0, 32), 45, y + 2);
-            doc.text(category, 110, y + 2);
-            doc.text(price, 145, y + 2);
-            doc.text(status, 170, y + 2);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(219, 39, 119);
+            doc.text(`$${(p.price || 0).toFixed(2)}`, currentX + 6, currentY + 77);
 
-            y += 16;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            doc.setTextColor(p.available !== false ? 16 : 225, p.available !== false ? 185 : 29, p.available !== false ? 129 : 72);
+            doc.text(p.available !== false ? 'DISPONIBLE' : 'AGOTADO', currentX + cardWidth - 26, currentY + 77);
         }
 
         doc.save("Catalogo_Boutique_Glam_Chic.pdf");
-        showToast("¡Catálogo PDF con imágenes descargado con éxito!");
+        showToast("¡Catálogo en tarjetas PDF descargado con éxito!");
 
     } catch (error) {
         console.error("Error al generar PDF:", error);

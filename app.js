@@ -634,7 +634,7 @@ window.loadAdminDashboardData = async function() {
                         </select>
                     </td>
                     <td class="p-4 text-center">
-                        <button onclick="deleteOrder('${o._id}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors">
+                        <button onclick="deleteOrder('${o._id}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors" title="Eliminar pedido">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </td>
@@ -668,12 +668,17 @@ window.deleteOrder = async function(orderId) {
         const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
             method: 'DELETE'
         });
+        
         if (response.ok) {
-            showToast("Pedido eliminado.");
-            loadAdminDashboardData();
+            showToast("Pedido eliminado correctamente.");
+            await loadAdminDashboardData();
+        } else {
+            const errData = await response.json();
+            alert(errData.error || "No se pudo eliminar el pedido en el servidor.");
         }
     } catch (e) {
-        alert("Error al eliminar el pedido.");
+        console.error("Error al eliminar pedido:", e);
+        alert("Error de conexión al intentar eliminar el pedido.");
     }
 };
 

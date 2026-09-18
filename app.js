@@ -4,8 +4,6 @@ const API_URL = window.location.hostname === 'localhost' || window.location.host
 
 let isRegistering = false;
 let salesChartInstance = null;
-let cachedAdminOrders = [];
-let cachedClientOrders = [];
 let selectedProductForDetail = null;
 let currentSelectedSize = 'Unitalla';
 
@@ -17,25 +15,19 @@ async function initializeApp() {
     await fetchAndRenderBanner();
     checkUserSession();
     setupProductForm();
-    setupEditProductForm();
     setupBannerAdminForm();
     setupThemeToggle();
     setupFilters();
     updateOrderBadge();
     setupOrderModal();
     setupAuthForm();
+    setupChatbot();
     monitorConnection();
 }
 
 async function fetchAndRenderProducts() {
     let local = JSON.parse(localStorage.getItem('glam_products'));
     if (local && local.length > 0) {
-        renderCatalog(local);
-        renderAdminProductsTable(local);
-    } else {
-        local = [
-            { name: "Vestido Midi Satinado", category: "Vestidos", price: 899.00, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=60", description: "Elegante vestido de satín con tirantes ajustables." }
-        ];
         renderCatalog(local);
         renderAdminProductsTable(local);
     }
@@ -65,9 +57,9 @@ async function fetchAndRenderBanner() {
             const badgeEl = document.getElementById('display-badge');
             const videoEl = document.getElementById('display-video');
 
-            if (titleEl) titleEl.textContent = banner.title || '¡Colección Glam Chic!';
-            if (subtitleEl) subtitleEl.textContent = banner.subtitle || 'Descubre las últimas tendencias.';
-            if (badgeEl) badgeEl.textContent = banner.badge || '✨ Promoción';
+            if (titleEl) titleEl.textContent = banner.title;
+            if (subtitleEl) subtitleEl.textContent = banner.subtitle;
+            if (badgeEl) badgeEl.textContent = banner.badge;
             if (videoEl && banner.videoUrl) videoEl.src = banner.videoUrl;
         }
     } catch (e) {
@@ -103,28 +95,38 @@ function renderCatalog(itemsToRender) {
 
     itemsToRender.forEach(product => {
         const prodId = product._id || product.id || Math.random().toString();
+        const isAvailable = product.available !== false;
+
         const card = document.createElement('div');
-        card.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col cursor-pointer group';
-        card.onclick = (e) => {
-            if (e.target.closest('.quick-add-btn')) return;
-            openProductDetail(prodId);
-        };
+        card.className = `bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col group ${!isAvailable ? 'opacity-75' : 'cursor-pointer'}`;
+        
+        if (isAvailable) {
+            card.onclick = (e) => {
+                if (e.target.closest('.quick-add-btn')) return;
+                openProductDetail(prodId);
+            };
+        }
 
         card.innerHTML = `
             <div class="h-64 overflow-hidden bg-gray-100 dark:bg-gray-900 relative">
-                <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy">
-                <span class="absolute top-3 right-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-pink-700 dark:text-pink-400 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${!isAvailable ? 'grayscale' : ''}" loading="lazy">
+                <span class="absolute top-3 right-3 bg-white/90 dark:bg-gray-900/95 backdrop-blur-sm text-pink-700 dark:text-pink-400 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                     ${product.category}
                 </span>
+                ${!isAvailable ? '<span class="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Agotado</span>' : ''}
             </div>
             <div class="p-5 flex flex-col flex-grow">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 mb-1 group-hover:text-pink-600 transition-colors">${product.name}</h3>
                 <p class="text-gray-500 dark:text-gray-400 text-sm mb-4 flex-grow line-clamp-2">${product.description || 'Sin descripción detallada.'}</p>
                 <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
                     <span class="text-xl font-extrabold text-pink-600 dark:text-pink-400">$${product.price.toFixed(2)}</span>
-                    <button onclick="addToOrder('${prodId}')" class="quick-add-btn bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-1.5">
-                        <i class="fas fa-plus"></i> <span>Añadir</span>
-                    </button>
+                    ${isAvailable ? `
+                        <button onclick="addToOrder('${prodId}')" class="quick-add-btn bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-1.5">
+                            <i class="fas fa-plus"></i> <span>Añadir</span>
+                        </button>
+                    ` : `
+                        <span class="text-xs font-bold text-red-500 uppercase tracking-wider px-3 py-1.5 bg-red-50 dark:bg-red-900/30 rounded-xl">No disponible</span>
+                    `}
                 </div>
             </div>
         `;
@@ -154,9 +156,7 @@ window.closeProductDetailModal = function() {
     selectedProductForDetail = null;
 };
 
-window.selectSize = function(size) {
-    currentSelectedSize = size;
-};
+window.selectSize = function(size) { currentSelectedSize = size; };
 
 window.addCurrentProductToOrder = function() {
     if (!selectedProductForDetail) return;
@@ -184,12 +184,13 @@ function renderAdminProductsTable(products) {
     if (!tableBody) return;
 
     if (products.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">No hay productos en el inventario.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">No hay productos en el inventario.</td></tr>`;
         return;
     }
 
     tableBody.innerHTML = products.map((p, index) => {
         const prodId = p._id || p.id || index;
+        const isAvailable = p.available !== false;
         return `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <td class="p-4 flex items-center space-x-3">
@@ -198,6 +199,11 @@ function renderAdminProductsTable(products) {
                 </td>
                 <td class="p-4 text-xs text-gray-600 dark:text-gray-300">${p.category}</td>
                 <td class="p-4 font-bold text-pink-600 dark:text-pink-400">$${p.price.toFixed(2)}</td>
+                <td class="p-4 text-xs">
+                    <span class="px-2.5 py-1 rounded-full font-semibold ${isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                        ${isAvailable ? 'Disponible' : 'Agotado'}
+                    </span>
+                </td>
                 <td class="p-4 text-center">
                     <button onclick="deleteProduct('${prodId}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200">
                         <i class="fas fa-trash-alt mr-1"></i> Eliminar
@@ -211,7 +217,7 @@ function renderAdminProductsTable(products) {
 window.addToOrder = function(productId) {
     const allProducts = getStoredProducts();
     const product = allProducts.find(p => (p._id === productId || p.id == productId));
-    if (!product) return;
+    if (!product || product.available === false) return;
 
     let currentOrder = getSavedOrder();
     const existingItem = currentOrder.find(item => (item._id === productId || item.id == productId));
@@ -284,6 +290,52 @@ function renderOrderModalContent() {
     totalContainer.textContent = `$${grandTotal.toFixed(2)}`;
 }
 
+window.confirmCashOrder = async function() {
+    const currentOrder = getSavedOrder();
+    if (currentOrder.length === 0) {
+        alert('Tu pedido está vacío.');
+        return;
+    }
+
+    const address = document.getElementById('shipping-address').value.trim();
+    const phone = document.getElementById('client-phone').value.trim();
+    const session = JSON.parse(localStorage.getItem('glam_user_session'));
+
+    if (!address || !phone) {
+        alert('Por favor ingresa tu dirección de envío y teléfono.');
+        return;
+    }
+
+    const orderPayload = {
+        clientEmail: session ? session.email : 'invitado@glamchic.com',
+        clientName: session ? session.name : 'Cliente Invitado',
+        shippingAddress: address,
+        clientPhone: phone,
+        paymentMethod: 'Efectivo / Contra Entrega',
+        items: currentOrder,
+        total: currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    };
+
+    try {
+        const response = await fetch(`${API_URL}/api/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+        });
+
+        if (response.ok) {
+            alert('¡Pedido confirmado con éxito! Nos pondremos en contacto contigo.');
+            localStorage.setItem('glam_saved_order', JSON.stringify([]));
+            updateOrderBadge();
+            document.getElementById('order-modal').classList.add('hidden');
+        } else {
+            alert('Error al registrar el pedido en el servidor.');
+        }
+    } catch (err) {
+        alert('No se pudo conectar con el servidor.');
+    }
+}
+
 function showToast(message) {
     let toast = document.getElementById('toast-notification');
     if (!toast) {
@@ -325,7 +377,7 @@ function checkUserSession() {
             if (clientNavTabs) clientNavTabs.classList.remove('hidden');
         }
     } else {
-        container.innerHTML = `<button id="open-auth-btn" class="bg-gray-100 hover:bg-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium flex items-center space-x-2"><i class="fas fa-user"></i> <span>Iniciar Sesión</span></button>`;
+        container.innerHTML = `<button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium flex items-center space-x-2"><i class="fas fa-user"></i> <span>Iniciar Sesión</span></button>`;
         document.getElementById('open-auth-btn').addEventListener('click', openAuthModal);
         if (catalogView) catalogView.classList.remove('hidden');
         if (adminDashboard) adminDashboard.classList.add('hidden');
@@ -410,7 +462,8 @@ function setupProductForm() {
             category: document.getElementById('prod-category').value,
             price: parseFloat(document.getElementById('prod-price').value),
             image: document.getElementById('prod-image').value.trim(),
-            description: document.getElementById('prod-desc').value.trim()
+            description: document.getElementById('prod-desc').value.trim(),
+            available: document.getElementById('prod-available').value === 'true'
         };
 
         try {
@@ -455,7 +508,7 @@ function setupBannerAdminForm() {
             });
 
             if (response.ok) {
-                showToast('¡Anuncio y spot publicitario actualizados con éxito!');
+                showToast('¡Anuncio actualizado con éxito!');
                 await fetchAndRenderBanner();
                 newForm.reset();
             } else {
@@ -490,7 +543,6 @@ window.loadAdminDashboardData = async function() {
         const response = await fetch(`${API_URL}/api/admin/orders`);
         const orders = await response.json();
         if (response.ok) {
-            cachedAdminOrders = orders;
             totalSalesEl.textContent = `$${orders.reduce((s, o) => s + o.total, 0).toFixed(2)}`;
             totalOrdersEl.textContent = orders.length;
             pendingOrdersEl.textContent = orders.filter(o => o.status === 'Pendiente').length;
@@ -563,6 +615,41 @@ function setupFilters() {
     categoryFilter.addEventListener('change', filterHandler);
 }
 
+function setupChatbot() {
+    const toggleBtn = document.getElementById('chatbot-toggle-btn');
+    const closeBtn = document.getElementById('chatbot-close-btn');
+    const windowEl = document.getElementById('chatbot-window');
+    const sendBtn = document.getElementById('chatbot-send-btn');
+    const inputEl = document.getElementById('chatbot-input');
+    const messagesEl = document.getElementById('chatbot-messages');
+
+    if (!toggleBtn) return;
+
+    toggleBtn.onclick = () => windowEl.classList.toggle('hidden');
+    closeBtn.onclick = () => windowEl.classList.add('hidden');
+
+    const addMsg = (text, sender) => {
+        const div = document.createElement('div');
+        div.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+        div.innerHTML = `<div class="p-3 rounded-2xl max-w-[80%] text-xs ${sender === 'user' ? 'bg-pink-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border'}">${text}</div>`;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    };
+
+    const handleSend = () => {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        addMsg(text, 'user');
+        inputEl.value = '';
+        setTimeout(() => {
+            addMsg('¡Gracias por tu mensaje! Con gusto te asistimos con tu compra en Boutique Glam Chic. 💖', 'bot');
+        }, 1000);
+    };
+
+    sendBtn.onclick = handleSend;
+    inputEl.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
+}
+
 function monitorConnection() {
     const banner = document.getElementById('offline-banner');
     if (!banner) return;
@@ -571,5 +658,73 @@ function monitorConnection() {
     window.addEventListener('offline', updateStatus);
     updateStatus();
 }
+
+window.switchClientView = function(view) {
+    const catalogView = document.getElementById('products-section');
+    const historyView = document.getElementById('client-history-section');
+    const catBtn = document.getElementById('tab-catalog-btn');
+    const histBtn = document.getElementById('tab-history-btn');
+
+    if (view === 'catalog') {
+        catalogView.classList.remove('hidden');
+        historyView.classList.add('hidden');
+        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
+        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
+    } else {
+        catalogView.classList.add('hidden');
+        historyView.classList.remove('hidden');
+        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
+        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
+        loadClientOrders();
+    }
+}
+
+async function loadClientOrders() {
+    const session = JSON.parse(localStorage.getItem('glam_user_session'));
+    const container = document.getElementById('client-orders-container');
+    if (!container) return;
+
+    if (!session) {
+        container.innerHTML = `<p class="text-xs text-gray-400">Inicia sesión para ver tu historial de pedidos.</p>`;
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/orders/client/${session.email}`);
+        const orders = await response.json();
+        if (orders.length === 0) {
+            container.innerHTML = `<p class="text-xs text-gray-400">No tienes pedidos registrados todavía.</p>`;
+            return;
+        }
+
+        container.innerHTML = orders.map(o => `
+            <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs">
+                <div>
+                    <span class="font-bold text-pink-600">Pedido #${o._id}</span>
+                    <p class="text-gray-500 mt-1">${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>
+                    <span class="text-[10px] text-gray-400">Envío a: ${o.shippingAddress}</span>
+                </div>
+                <div class="text-right">
+                    <span class="font-extrabold text-sm">$${o.total.toFixed(2)}</span>
+                    <span class="block px-2.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 mt-1">${o.status}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = `<p class="text-xs text-red-400">Error al cargar historial.</p>`;
+    }
+}
+
+window.downloadCatalogPDF = function() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.text("Catálogo - Boutique Glam Chic", 14, 20);
+    doc.autoTable({
+        startY: 30,
+        head: [['Prenda', 'Categoría', 'Precio']],
+        body: getStoredProducts().map(p => [p.name, p.category, `$${p.price.toFixed(2)}`])
+    });
+    doc.save("Catalogo_Glam_Chic.pdf");
+};
 
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });

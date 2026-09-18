@@ -14,13 +14,14 @@ mongoose.connect(MONGO_URI)
     .then(() => console.log('Conectado exitosamente a MongoDB Atlas (glam-chic)'))
     .catch(err => console.error('Error de conexión a MongoDB:', err));
 
-// Modelos de Mongoose
+// Modelos de Mongoose con disponibilidad
 const productSchema = new mongoose.Schema({
     name: { type: String, required: true },
     category: { type: String, required: true },
     price: { type: Number, required: true },
     image: { type: String, required: true },
-    description: { type: String }
+    description: { type: String },
+    available: { type: Boolean, default: true }
 });
 const Product = mongoose.model('Product', productSchema);
 
@@ -45,7 +46,6 @@ const orderSchema = new mongoose.Schema({
 });
 const Order = mongoose.model('Order', orderSchema);
 
-// Modelo de Anuncios y Videos Publicitarios
 const bannerSchema = new mongoose.Schema({
     title: { type: String, required: true },
     subtitle: { type: String },
@@ -73,15 +73,6 @@ app.post('/api/admin/products', async (req, res) => {
         res.status(201).json(newProduct);
     } catch (err) {
         res.status(500).json({ error: 'Error al guardar producto' });
-    }
-});
-
-app.put('/api/admin/products/:id', async (req, res) => {
-    try {
-        const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        res.json(updated);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al actualizar producto' });
     }
 });
 
@@ -149,25 +140,7 @@ app.get('/api/admin/orders', async (req, res) => {
     }
 });
 
-app.put('/api/admin/orders/:id/status', async (req, res) => {
-    try {
-        const updated = await Order.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
-        res.json(updated);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al actualizar estatus' });
-    }
-});
-
-app.delete('/api/admin/orders/:id', async (req, res) => {
-    try {
-        await Order.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Pedido eliminado' });
-    } catch (err) {
-        res.status(500).json({ error: 'Error al eliminar pedido' });
-    }
-});
-
-// Rutas API - Anuncios y Videos Publicitarios (Gestionables por Admin)
+// Rutas API - Anuncios y Videos Publicitarios
 app.get('/api/banner', async (req, res) => {
     try {
         let banner = await Banner.findOne({ active: true }).sort({ createdAt: -1 });

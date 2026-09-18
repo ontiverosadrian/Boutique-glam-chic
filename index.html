@@ -24,7 +24,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Chart.js para métricas del dashboard -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- EmailJS para correos de bienvenida -->
+    <!-- EmailJS para correos -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
         (function() { emailjs.init("wv8zvlk"); })();
@@ -222,7 +222,7 @@
                 </div>
             </div>
 
-            <!-- Gráfica, Formulario de Anuncios y Formulario de Productos -->
+            <!-- Gráfica y Formulario de Anuncios -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Gráfica -->
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-2 flex flex-col">
@@ -265,7 +265,7 @@
                 </div>
             </div>
 
-            <!-- Formulario Agregar Producto -->
+            <!-- Formulario Agregar Producto (Con Disponibilidad) -->
             <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 class="font-bold text-base mb-4 text-gray-800 dark:text-gray-100 flex items-center">
                     <i class="fas fa-plus-circle text-pink-600 mr-2"></i> Nuevo Producto
@@ -296,9 +296,16 @@
                             <input type="url" id="prod-image" required class="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Descripción</label>
-                            <input type="text" id="prod-desc" class="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Disponibilidad</label>
+                            <select id="prod-available" class="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500">
+                                <option value="true">Disponible</option>
+                                <option value="false">Agotado</option>
+                            </select>
                         </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Descripción</label>
+                        <input type="text" id="prod-desc" class="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500">
                     </div>
                     <button type="submit" class="w-full bg-pink-600 hover:bg-pink-700 text-white py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
                         Guardar Producto
@@ -320,6 +327,7 @@
                                 <th class="p-4">Prenda</th>
                                 <th class="p-4">Categoría</th>
                                 <th class="p-4">Precio</th>
+                                <th class="p-4">Estado</th>
                                 <th class="p-4 text-center">Acciones</th>
                             </tr>
                         </thead>
@@ -413,7 +421,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Método de Pago</label>
-                        <div class="py-2 text-xs font-bold text-pink-600 dark:text-pink-400">Efectivo / PayPal</div>
+                        <div class="py-2 text-xs font-bold text-pink-600 dark:text-pink-400">Efectivo / Contra Entrega</div>
                     </div>
                 </div>
             </div>
@@ -426,9 +434,6 @@
             <div class="space-y-3">
                 <button onclick="confirmCashOrder()" class="w-full bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-2xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center space-x-2">
                     <i class="fas fa-check-circle"></i> <span>Confirmar Pedido (Pago Contra Entrega)</span>
-                </button>
-                <button id="whatsapp-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-2xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center space-x-2">
-                    <i class="fab fa-whatsapp text-base"></i> <span>Solicitar por WhatsApp</span>
                 </button>
             </div>
         </div>

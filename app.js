@@ -198,7 +198,10 @@ function setupEditProductForm() {
     const form = document.getElementById('edit-product-form');
     if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const prodId = document.getElementById('edit-prod-id').value;
         const updatedProd = {
@@ -218,15 +221,29 @@ function setupEditProductForm() {
             });
 
             if (response.ok) {
-                showToast('¡Producto actualizado con éxito!');
+                showToast('¡Producto actualizado en el servidor!');
                 closeEditProductModal();
                 await fetchAndRenderProducts();
-            } else {
-                alert('Error al actualizar el producto en el servidor.');
+                return;
             }
         } catch (err) {
-            alert('No se pudo conectar con el servidor.');
+            console.log('Servidor en pausa o sin conexión, actualizando localmente...');
         }
+
+        let localProducts = getStoredProducts();
+        localProducts = localProducts.map(p => {
+            if ((p._id && p._id === prodId) || (p.id && p.id == prodId)) {
+                return { ...p, ...updatedProd, _id: p._id || prodId };
+            }
+            return p;
+        });
+
+        localStorage.setItem('glam_products', JSON.stringify(localProducts));
+        renderCatalog(localProducts);
+        renderAdminProductsTable(localProducts);
+        
+        showToast('¡Producto actualizado localmente con éxito!');
+        closeEditProductModal();
     });
 }
 

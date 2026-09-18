@@ -431,7 +431,7 @@ async function processOrderWithPaymentMethod(method) {
     }
 }
 
-window.downloadCatalogPDF = function() {
+window.downloadCatalogPDF = async function() {
     try {
         const { jsPDF } = window.jspdf || {};
         if (!jsPDF) {
@@ -449,7 +449,7 @@ window.downloadCatalogPDF = function() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
-        doc.text("Catálogo Exclusivo de Prendas y Accesorios", 14, 27);
+        doc.text("Catálogo Exclusivo con Imágenes", 14, 27);
         doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 33);
 
         const products = getStoredProducts();
@@ -465,41 +465,76 @@ window.downloadCatalogPDF = function() {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(255, 255, 255);
-        doc.text("Prenda / Accesorio", 16, y);
-        doc.text("Categoría", 100, y);
-        doc.text("Precio", 140, y);
+        doc.text("Imagen", 18, y);
+        doc.text("Prenda / Accesorio", 45, y);
+        doc.text("Categoría", 110, y);
+        doc.text("Precio", 145, y);
         doc.text("Estatus", 170, y);
 
-        y += 8;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(50, 50, 50);
+        y += 10;
 
-        products.forEach((p, index) => {
-            if (y > 270) {
+        const getBase64ImageFromURL = (url) => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = function() {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = 40;
+                    canvas.height = 40;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, 40, 40);
+                    resolve(canvas.toDataURL("image/jpeg"));
+                };
+                img.onerror = function() {
+                    resolve(null);
+                };
+                img.src = url;
+            });
+        };
+
+        for (let i = 0; i < products.length; i++) {
+            const p = products[i];
+
+            if (y > 260) {
                 doc.addPage();
                 y = 20;
             }
 
-            if (index % 2 === 0) {
+            if (i % 2 === 0) {
                 doc.setFillColor(253, 242, 248);
-                doc.rect(14, y - 4, 182, 7, "F");
+                doc.rect(14, y - 6, 182, 16, "F");
             }
+
+            if (p.image) {
+                try {
+                    const base64Img = await getBase64ImageFromURL(p.image);
+                    if (base64Img) {
+                        doc.addImage(base64Img, 'JPEG', 15, y - 5, 12, 12);
+                    }
+                } catch (err) {
+                    console.log("No se pudo incrustar imagen externa:", err);
+                }
+            }
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(50, 50, 50);
 
             const name = p.name || 'Sin nombre';
             const category = p.category || 'General';
             const price = `$${(p.price || 0).toFixed(2)}`;
             const status = p.available !== false ? 'Disponible' : 'Agotado';
 
-            doc.text(name.substring(0, 40), 16, y);
-            doc.text(category, 100, y);
-            doc.text(price, 140, y);
-            doc.text(status, 170, y);
+            doc.text(name.substring(0, 32), 45, y + 2);
+            doc.text(category, 110, y + 2);
+            doc.text(price, 145, y + 2);
+            doc.text(status, 170, y + 2);
 
-            y += 8;
-        });
+            y += 16;
+        }
 
         doc.save("Catalogo_Boutique_Glam_Chic.pdf");
-        showToast("¡Catálogo PDF descargado con éxito!");
+        showToast("¡Catálogo PDF con imágenes descargado con éxito!");
 
     } catch (error) {
         console.error("Error al generar PDF:", error);

@@ -16,6 +16,9 @@
     
     <!-- Favicon de Diamante en formato SVG elegante -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22><path fill=%22%23db2777%22 d=%22M459.7 156.4L330.4 21.1C322.7 13 312 8.4 300.8 8.4H211.2c-11.2 0-21.9 4.6-29.6 12.7L52.3 156.4c-12.7 13.3-15.1 32.8-5.7 48.7l192 320c7.8 13 21.9 21.1 37.3 21.1s29.5-8.1 37.3-21.1l192-320c9.4-15.9 7-35.4-5.7-48.7zM256 461.3L89.1 184.4l102.7-108h128l102.7 108L256 461.3z%22/></svg>">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
 
     <!-- jsPDF para generación de tickets y catálogos en PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -224,7 +227,6 @@
 
             <!-- Gráfica y Formulario de Anuncios -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Gráfica -->
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-2 flex flex-col">
                     <h3 class="font-bold text-base mb-4 text-gray-800 dark:text-gray-100 flex items-center">
                         <i class="fas fa-chart-bar text-pink-600 mr-2"></i> Rendimiento de Ventas Recientes
@@ -234,7 +236,6 @@
                     </div>
                 </div>
 
-                <!-- Formulario Gestionar Anuncio y Video -->
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <h3 class="font-bold text-base mb-4 text-gray-800 dark:text-gray-100 flex items-center">
                         <i class="fas fa-bullhorn text-pink-600 mr-2"></i> Gestionar Anuncio
@@ -265,7 +266,7 @@
                 </div>
             </div>
 
-            <!-- Formulario Agregar Producto (Con Disponibilidad) -->
+            <!-- Formulario Agregar Producto -->
             <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 class="font-bold text-base mb-4 text-gray-800 dark:text-gray-100 flex items-center">
                     <i class="fas fa-plus-circle text-pink-600 mr-2"></i> Nuevo Producto
@@ -353,6 +354,7 @@
                                 <th class="p-4">Detalles Envío</th>
                                 <th class="p-4">Total</th>
                                 <th class="p-4">Estatus</th>
+                                <th class="p-4 text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="admin-orders-table" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
@@ -421,7 +423,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Método de Pago</label>
-                        <div class="py-2 text-xs font-bold text-pink-600 dark:text-pink-400">Efectivo / Contra Entrega</div>
+                        <div class="py-2 text-xs font-bold text-pink-600 dark:text-pink-400">Efectivo / Tarjeta</div>
                     </div>
                 </div>
             </div>
@@ -435,7 +437,49 @@
                 <button onclick="confirmCashOrder()" class="w-full bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-2xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center space-x-2">
                     <i class="fas fa-check-circle"></i> <span>Confirmar Pedido (Pago Contra Entrega)</span>
                 </button>
+                <button onclick="openCardModal()" class="w-full bg-gray-900 hover:bg-black text-white py-3 rounded-2xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center space-x-2">
+                    <i class="fas fa-credit-card"></i> <span>Pagar con Tarjeta (Débito / Crédito)</span>
+                </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal de Pasarela de Pago con Tarjeta -->
+    <div id="card-payment-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl border border-gray-100 dark:border-gray-700">
+            <button onclick="closeCardModal()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="w-10 h-10 bg-pink-100 dark:bg-pink-900/40 text-pink-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-credit-card text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-extrabold text-gray-800 dark:text-gray-100">Pasarela Segura</h2>
+                    <p class="text-xs text-gray-500">Acepta cualquier tarjeta de débito o crédito</p>
+                </div>
+            </div>
+            <form id="card-payment-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Nombre del Titular</label>
+                    <input type="text" id="card-holder" required placeholder="Como aparece en la tarjeta" class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Número de Tarjeta</label>
+                    <input type="text" id="card-number" required maxlength="19" placeholder="4532 •••• •••• ••••" class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Expiración</label>
+                        <input type="text" id="card-expiry" required maxlength="5" placeholder="MM/AA" class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">CVV / CVC</label>
+                        <input type="password" id="card-cvv" required maxlength="4" placeholder="123" class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-2xl text-xs font-bold transition-colors shadow-sm">Pagar de Forma Segura</button>
+            </form>
         </div>
     </div>
 

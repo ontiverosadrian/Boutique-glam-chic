@@ -16,12 +16,12 @@ async function initializeApp() {
     checkUserSession();
     setupProductForm();
     setupBannerAdminForm();
+    setupCardPaymentForm();
     setupThemeToggle();
     setupFilters();
     updateOrderBadge();
     setupOrderModal();
     setupAuthForm();
-    setupChatbot();
     monitorConnection();
 }
 
@@ -179,41 +179,6 @@ window.addCurrentProductToOrder = function() {
     closeProductDetailModal();
 };
 
-function renderAdminProductsTable(products) {
-    const tableBody = document.getElementById('admin-products-table');
-    if (!tableBody) return;
-
-    if (products.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">No hay productos en el inventario.</td></tr>`;
-        return;
-    }
-
-    tableBody.innerHTML = products.map((p, index) => {
-        const prodId = p._id || p.id || index;
-        const isAvailable = p.available !== false;
-        return `
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <td class="p-4 flex items-center space-x-3">
-                    <img src="${p.image}" alt="${p.name}" class="w-10 h-10 object-cover rounded-lg">
-                    <span class="font-semibold text-gray-800 dark:text-gray-200">${p.name}</span>
-                </td>
-                <td class="p-4 text-xs text-gray-600 dark:text-gray-300">${p.category}</td>
-                <td class="p-4 font-bold text-pink-600 dark:text-pink-400">$${p.price.toFixed(2)}</td>
-                <td class="p-4 text-xs">
-                    <span class="px-2.5 py-1 rounded-full font-semibold ${isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
-                        ${isAvailable ? 'Disponible' : 'Agotado'}
-                    </span>
-                </td>
-                <td class="p-4 text-center">
-                    <button onclick="deleteProduct('${prodId}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200">
-                        <i class="fas fa-trash-alt mr-1"></i> Eliminar
-                    </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
 window.addToOrder = function(productId) {
     const allProducts = getStoredProducts();
     const product = allProducts.find(p => (p._id === productId || p.id == productId));
@@ -291,29 +256,63 @@ function renderOrderModalContent() {
 }
 
 window.confirmCashOrder = async function() {
+    await processOrderWithPaymentMethod('Efectivo / Contra Entrega');
+}
+
+window.openCardModal = function() {
     const currentOrder = getSavedOrder();
     if (currentOrder.length === 0) {
         alert('Tu pedido está vacío.');
         return;
     }
+    
+    const address = document.getElementById('shipping-address').value.trim();
+    const phone = document.getElementById('client-phone').value.trim();
+    if (!address || !phone) {
+        alert('Por favor ingresa tu dirección de envío y teléfono antes de proceder al pago con tarjeta.');
+        return;
+    }
 
+    document.getElementById('order-modal').classList.add('hidden');
+    document.getElementById('card-payment-modal').classList.remove('hidden');
+}
+
+window.closeCardModal = function() {
+    document.getElementById('card-payment-modal').classList.add('hidden');
+}
+
+function setupCardPaymentForm() {
+    const form = document.getElementById('card-payment-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const number = document.getElementById('card-number').value.trim();
+        if (number.length < 15) {
+            alert('Número de tarjeta inválido.');
+            return;
+        }
+        await processOrderWithPaymentMethod(`Tarjeta (Terminada en ${number.slice(-4)})`);
+        closeCardModal();
+        form.reset();
+    });
+}
+
+async function processOrderWithPaymentMethod(method) {
+    const currentOrder = getSavedOrder();
     const address = document.getElementById('shipping-address').value.trim();
     const phone = document.getElementById('client-phone').value.trim();
     const session = JSON.parse(localStorage.getItem('glam_user_session'));
 
-    if (!address || !phone) {
-        alert('Por favor ingresa tu dirección de envío y teléfono.');
-        return;
-    }
-
     const orderPayload = {
-        clientEmail: session ? session.email : 'invitado@glamchic.com',
+        clientEmail: session ? session.email : 'cliente@glamchic.com',
         clientName: session ? session.name : 'Cliente Invitado',
         shippingAddress: address,
         clientPhone: phone,
-        paymentMethod: 'Efectivo / Contra Entrega',
+        paymentMethod: method,
         items: currentOrder,
-        total: currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+        total: currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        status: method.includes('Tarjeta') ? 'Pagado y Confirmado' : 'Pendiente'
     };
 
     try {
@@ -324,7 +323,7 @@ window.confirmCashOrder = async function() {
         });
 
         if (response.ok) {
-            alert('¡Pedido confirmado con éxito! Nos pondremos en contacto contigo.');
+            alert(`¡Pedido procesado con éxito vía ${method}! Registrado correctamente.`);
             localStorage.setItem('glam_saved_order', JSON.stringify([]));
             updateOrderBadge();
             document.getElementById('order-modal').classList.add('hidden');
@@ -335,6 +334,39 @@ window.confirmCashOrder = async function() {
         alert('No se pudo conectar con el servidor.');
     }
 }
+
+window.downloadCatalogPDF = function() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(219, 39, 119);
+    doc.text("Boutique Glam Chic - Catálogo Exclusivo", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 28);
+
+    const products = getStoredProducts();
+    const tableData = products.map(p => [
+        p.name, 
+        p.category, 
+        `$${p.price.toFixed(2)}`, 
+        p.available !== false ? 'Disponible' : 'Agotado'
+    ]);
+
+    doc.autoTable({
+        startY: 35,
+        head: [['Prenda / Accesorio', 'Categoría', 'Precio', 'Estatus']],
+        body: tableData,
+        headStyles: { fillColor: [219, 39, 119] },
+        theme: 'striped'
+    });
+
+    doc.save("Catalogo_Boutique_Glam_Chic.pdf");
+    showToast("¡Catálogo PDF descargado con éxito!");
+};
 
 function showToast(message) {
     let toast = document.getElementById('toast-notification');
@@ -533,49 +565,57 @@ window.deleteProduct = async function(productId) {
 
 window.loadAdminDashboardData = async function() {
     const tableBody = document.getElementById('admin-orders-table');
-    const totalSalesEl = document.getElementById('kpi-total-sales');
-    const totalOrdersEl = document.getElementById('kpi-total-orders');
-    const pendingOrdersEl = document.getElementById('kpi-pending-orders');
-
     if (!tableBody) return;
 
     try {
         const response = await fetch(`${API_URL}/api/admin/orders`);
         const orders = await response.json();
         if (response.ok) {
-            totalSalesEl.textContent = `$${orders.reduce((s, o) => s + o.total, 0).toFixed(2)}`;
-            totalOrdersEl.textContent = orders.length;
-            pendingOrdersEl.textContent = orders.filter(o => o.status === 'Pendiente').length;
-            renderSalesChart(orders);
             tableBody.innerHTML = orders.map(o => `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td class="p-4 font-mono text-xs text-pink-600">${o._id}</td>
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td class="p-4 font-mono text-xs text-pink-600">${o._id.slice(-6)}</td>
                     <td class="p-4 text-xs font-semibold">${o.clientName}</td>
-                    <td class="p-4 text-xs">${o.items.map(i => i.name).join(', ')}</td>
+                    <td class="p-4 text-xs">${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</td>
                     <td class="p-4 text-xs">${o.shippingAddress}</td>
                     <td class="p-4 font-bold text-xs">$${o.total.toFixed(2)}</td>
-                    <td class="p-4 text-xs font-semibold">${o.status}</td>
+                    <td class="p-4 text-xs">
+                        <select onchange="updateOrderStatus('${o._id}', this.value)" class="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-semibold border">
+                            <option value="Pendiente" ${o.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                            <option value="Pagado y Confirmado" ${o.status === 'Pagado y Confirmado' ? 'selected' : ''}>Pagado y Confirmado</option>
+                            <option value="En Camino" ${o.status === 'En Camino' ? 'selected' : ''}>En Camino</option>
+                            <option value="Entregado" ${o.status === 'Entregado' ? 'selected' : ''}>Entregado</option>
+                        </select>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="deleteOrder('${o._id}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200"><i class="fas fa-trash-alt"></i></button>
+                    </td>
                 </tr>
             `).join('');
         }
     } catch (e) {
-        console.log('Error cargando panel admin');
+        console.log('Error al cargar pedidos del admin');
     }
 }
 
-function renderSalesChart(orders) {
-    const ctx = document.getElementById('salesChart');
-    if (!ctx) return;
-    if (salesChartInstance) salesChartInstance.destroy();
-    salesChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: orders.map(o => new Date(o.createdAt).toLocaleDateString()),
-            datasets: [{ data: orders.map(o => o.total), backgroundColor: 'rgba(219, 39, 119, 0.7)' }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-    });
-}
+window.updateOrderStatus = async function(orderId, newStatus) {
+    try {
+        await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        showToast("¡Estatus actualizado!");
+    } catch (e) { alert("Error al actualizar estatus."); }
+};
+
+window.deleteOrder = async function(orderId) {
+    if (!confirm('¿Eliminar este pedido?')) return;
+    try {
+        await fetch(`${API_URL}/api/admin/orders/${orderId}`, { method: 'DELETE' });
+        showToast("Pedido eliminado.");
+        loadAdminDashboardData();
+    } catch (e) { alert("Error al eliminar pedido."); }
+};
 
 function setupOrderModal() {
     const modal = document.getElementById('order-modal');
@@ -615,41 +655,6 @@ function setupFilters() {
     categoryFilter.addEventListener('change', filterHandler);
 }
 
-function setupChatbot() {
-    const toggleBtn = document.getElementById('chatbot-toggle-btn');
-    const closeBtn = document.getElementById('chatbot-close-btn');
-    const windowEl = document.getElementById('chatbot-window');
-    const sendBtn = document.getElementById('chatbot-send-btn');
-    const inputEl = document.getElementById('chatbot-input');
-    const messagesEl = document.getElementById('chatbot-messages');
-
-    if (!toggleBtn) return;
-
-    toggleBtn.onclick = () => windowEl.classList.toggle('hidden');
-    closeBtn.onclick = () => windowEl.classList.add('hidden');
-
-    const addMsg = (text, sender) => {
-        const div = document.createElement('div');
-        div.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
-        div.innerHTML = `<div class="p-3 rounded-2xl max-w-[80%] text-xs ${sender === 'user' ? 'bg-pink-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border'}">${text}</div>`;
-        messagesEl.appendChild(div);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-    };
-
-    const handleSend = () => {
-        const text = inputEl.value.trim();
-        if (!text) return;
-        addMsg(text, 'user');
-        inputEl.value = '';
-        setTimeout(() => {
-            addMsg('¡Gracias por tu mensaje! Con gusto te asistimos con tu compra en Boutique Glam Chic. 💖', 'bot');
-        }, 1000);
-    };
-
-    sendBtn.onclick = handleSend;
-    inputEl.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
-}
-
 function monitorConnection() {
     const banner = document.getElementById('offline-banner');
     if (!banner) return;
@@ -669,11 +674,11 @@ window.switchClientView = function(view) {
         catalogView.classList.remove('hidden');
         historyView.classList.add('hidden');
         catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
-        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
+        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 border border-gray-200';
     } else {
         catalogView.classList.add('hidden');
         historyView.classList.remove('hidden');
-        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
+        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 border border-gray-200';
         histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
         loadClientOrders();
     }
@@ -698,11 +703,11 @@ async function loadClientOrders() {
         }
 
         container.innerHTML = orders.map(o => `
-            <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs">
+            <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border flex justify-between items-center text-xs">
                 <div>
-                    <span class="font-bold text-pink-600">Pedido #${o._id}</span>
+                    <span class="font-bold text-pink-600">Pedido #${o._id.slice(-6)}</span>
                     <p class="text-gray-500 mt-1">${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>
-                    <span class="text-[10px] text-gray-400">Envío a: ${o.shippingAddress}</span>
+                    <span class="text-[10px] text-gray-400">Envío a: ${o.shippingAddress} | Pago: ${o.paymentMethod}</span>
                 </div>
                 <div class="text-right">
                     <span class="font-extrabold text-sm">$${o.total.toFixed(2)}</span>
@@ -714,17 +719,5 @@ async function loadClientOrders() {
         container.innerHTML = `<p class="text-xs text-red-400">Error al cargar historial.</p>`;
     }
 }
-
-window.downloadCatalogPDF = function() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.text("Catálogo - Boutique Glam Chic", 14, 20);
-    doc.autoTable({
-        startY: 30,
-        head: [['Prenda', 'Categoría', 'Precio']],
-        body: getStoredProducts().map(p => [p.name, p.category, `$${p.price.toFixed(2)}`])
-    });
-    doc.save("Catalogo_Glam_Chic.pdf");
-};
 
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });

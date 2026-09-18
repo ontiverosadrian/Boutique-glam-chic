@@ -135,6 +135,41 @@ function renderCatalog(itemsToRender) {
     });
 }
 
+function renderAdminProductsTable(products) {
+    const tableBody = document.getElementById('admin-products-table');
+    if (!tableBody) return;
+
+    if (!Array.isArray(products) || products.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400 text-xs">No hay productos en el inventario.</td></tr>`;
+        return;
+    }
+
+    tableBody.innerHTML = products.map(p => {
+        const prodId = p._id || p.id;
+        const isAvailable = p.available !== false;
+        return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="p-4 flex items-center space-x-3">
+                    <img src="${p.image}" alt="${p.name}" class="w-10 h-10 object-cover rounded-xl">
+                    <span class="font-semibold text-xs text-gray-800 dark:text-gray-200">${p.name}</span>
+                </td>
+                <td class="p-4 text-xs text-gray-500">${p.category}</td>
+                <td class="p-4 font-bold text-xs text-pink-600">$${p.price.toFixed(2)}</td>
+                <td class="p-4 text-xs">
+                    <span class="px-2.5 py-1 rounded-full font-semibold ${isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                        ${isAvailable ? 'Disponible' : 'Agotado'}
+                    </span>
+                </td>
+                <td class="p-4 text-center">
+                    <button onclick="deleteProduct('${prodId}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
 window.openProductDetail = function(productId) {
     const products = getStoredProducts();
     const product = products.find(p => (p._id === productId || p.id == productId));

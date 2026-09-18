@@ -22,6 +22,7 @@ async function initializeApp() {
     updateOrderBadge();
     setupOrderModal();
     setupAuthForm();
+    setupChatbot();
     monitorConnection();
 }
 
@@ -565,12 +566,21 @@ window.deleteProduct = async function(productId) {
 
 window.loadAdminDashboardData = async function() {
     const tableBody = document.getElementById('admin-orders-table');
+    const totalSalesEl = document.getElementById('kpi-total-sales');
+    const totalOrdersEl = document.getElementById('kpi-total-orders');
+    const pendingOrdersEl = document.getElementById('kpi-pending-orders');
+
     if (!tableBody) return;
 
     try {
         const response = await fetch(`${API_URL}/api/admin/orders`);
         const orders = await response.json();
         if (response.ok) {
+            if (totalSalesEl) totalSalesEl.textContent = `$${orders.reduce((s, o) => s + o.total, 0).toFixed(2)}`;
+            if (totalOrdersEl) totalOrdersEl.textContent = orders.length;
+            if (pendingOrdersEl) pendingOrdersEl.textContent = orders.filter(o => o.status.includes('Pendiente')).length;
+            renderSalesChart(orders);
+
             tableBody.innerHTML = orders.map(o => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td class="p-4 font-mono text-xs text-pink-600">${o._id.slice(-6)}</td>
@@ -579,7 +589,7 @@ window.loadAdminDashboardData = async function() {
                     <td class="p-4 text-xs">${o.shippingAddress}</td>
                     <td class="p-4 font-bold text-xs">$${o.total.toFixed(2)}</td>
                     <td class="p-4 text-xs">
-                        <select onchange="updateOrderStatus('${o._id}', this.value)" class="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-semibold border">
+                        <select onchange="updateOrderStatus('${o._id}', this.value)" class="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-semibold border border-gray-200 dark:border-gray-700">
                             <option value="Pendiente" ${o.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                             <option value="Pagado y Confirmado" ${o.status === 'Pagado y Confirmado' ? 'selected' : ''}>Pagado y Confirmado</option>
                             <option value="En Camino" ${o.status === 'En Camino' ? 'selected' : ''}>En Camino</option>
@@ -587,7 +597,9 @@ window.loadAdminDashboardData = async function() {
                         </select>
                     </td>
                     <td class="p-4 text-center">
-                        <button onclick="deleteOrder('${o._id}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200"><i class="fas fa-trash-alt"></i></button>
+                        <button onclick="deleteOrder('${o._id}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
                     </td>
                 </tr>
             `).join('');
@@ -599,23 +611,48 @@ window.loadAdminDashboardData = async function() {
 
 window.updateOrderStatus = async function(orderId, newStatus) {
     try {
-        await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
+        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
-        showToast("¡Estatus actualizado!");
-    } catch (e) { alert("Error al actualizar estatus."); }
+        if (response.ok) {
+            showToast("¡Estatus del pedido actualizado!");
+            loadAdminDashboardData();
+        }
+    } catch (e) {
+        alert("Error al actualizar estatus.");
+    }
 };
 
 window.deleteOrder = async function(orderId) {
-    if (!confirm('¿Eliminar este pedido?')) return;
+    if (!confirm('¿Estás seguro de eliminar este pedido del sistema?')) return;
     try {
-        await fetch(`${API_URL}/api/admin/orders/${orderId}`, { method: 'DELETE' });
-        showToast("Pedido eliminado.");
-        loadAdminDashboardData();
-    } catch (e) { alert("Error al eliminar pedido."); }
+        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) {
+            showToast("Pedido eliminado.");
+            loadAdminDashboardData();
+        }
+    } catch (e) {
+        alert("Error al eliminar el pedido.");
+    }
 };
+
+function renderSalesChart(orders) {
+    const ctx = document.getElementById('salesChart');
+    if (!ctx) return;
+    if (salesChartInstance) salesChartInstance.destroy();
+    salesChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: orders.map(o => new Date(o.createdAt).toLocaleDateString()),
+            datasets: [{ data: orders.map(o => o.total), backgroundColor: 'rgba(219, 39, 119, 0.7)' }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+}
 
 function setupOrderModal() {
     const modal = document.getElementById('order-modal');
@@ -655,6 +692,41 @@ function setupFilters() {
     categoryFilter.addEventListener('change', filterHandler);
 }
 
+function setupChatbot() {
+    const toggleBtn = document.getElementById('chatbot-toggle-btn');
+    const closeBtn = document.getElementById('chatbot-close-btn');
+    const windowEl = document.getElementById('chatbot-window');
+    const sendBtn = document.getElementById('chatbot-send-btn');
+    const inputEl = document.getElementById('chatbot-input');
+    const messagesEl = document.getElementById('chatbot-messages');
+
+    if (!toggleBtn) return;
+
+    toggleBtn.onclick = () => windowEl.classList.toggle('hidden');
+    closeBtn.onclick = () => windowEl.classList.add('hidden');
+
+    const addMsg = (text, sender) => {
+        const div = document.createElement('div');
+        div.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+        div.innerHTML = `<div class="p-3 rounded-2xl max-w-[80%] text-xs ${sender === 'user' ? 'bg-pink-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border'}">${text}</div>`;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    };
+
+    const handleSend = () => {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        addMsg(text, 'user');
+        inputEl.value = '';
+        setTimeout(() => {
+            addMsg('¡Gracias por tu mensaje! Con gusto te asistimos con tu compra en Boutique Glam Chic. 💖', 'bot');
+        }, 1000);
+    };
+
+    sendBtn.onclick = handleSend;
+    inputEl.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
+}
+
 function monitorConnection() {
     const banner = document.getElementById('offline-banner');
     if (!banner) return;
@@ -674,11 +746,11 @@ window.switchClientView = function(view) {
         catalogView.classList.remove('hidden');
         historyView.classList.add('hidden');
         catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
-        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 border border-gray-200';
+        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
     } else {
         catalogView.classList.add('hidden');
         historyView.classList.remove('hidden');
-        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 border border-gray-200';
+        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
         histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
         loadClientOrders();
     }
@@ -703,7 +775,7 @@ async function loadClientOrders() {
         }
 
         container.innerHTML = orders.map(o => `
-            <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border flex justify-between items-center text-xs">
+            <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs">
                 <div>
                     <span class="font-bold text-pink-600">Pedido #${o._id.slice(-6)}</span>
                     <p class="text-gray-500 mt-1">${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>

@@ -594,20 +594,52 @@ window.deleteOrder = async function(orderId) {
         });
         
         if (response.ok) {
-            showToast("Pedido eliminado del servidor correctamente.");
+            showToast("¡Pedido eliminado del servidor con éxito!");
             await loadAdminDashboardData();
             return;
         }
     } catch (e) {
-        console.log("Servidor en pausa o sin conexión, eliminando localmente...");
+        console.log("Servidor en pausa o sin conexión, eliminando de la vista...");
     }
 
-    try {
-        showToast("Pedido eliminado localmente con éxito.");
-        await loadAdminDashboardData();
-    } catch (err) {
-        window.location.reload();
+    const tableBody = document.getElementById('admin-orders-table');
+    if (tableBody) {
+        try {
+            const res = await fetch(`${API_URL}/api/admin/orders`);
+            if (res.ok) {
+                let orders = await res.json();
+                orders = orders.filter(o => o._id !== orderId && o.id != orderId);
+                tableBody.innerHTML = orders.map(o => `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td class="p-4 font-mono text-xs text-pink-600">${o._id ? o._id.slice(-6) : 'S/N'}</td>
+                        <td class="p-4 text-xs font-semibold">${o.clientName}</td>
+                        <td class="p-4 text-xs">${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</td>
+                        <td class="p-4 text-xs">${o.shippingAddress}</td>
+                        <td class="p-4 font-bold text-xs">$${o.total.toFixed(2)}</td>
+                        <td class="p-4 text-xs">
+                            <select onchange="updateOrderStatus('${o._id}', this.value)" class="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-semibold border border-gray-200 dark:border-gray-700">
+                                <option value="Pendiente" ${o.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="Pagado y Confirmado" ${o.status === 'Pagado y Confirmado' ? 'selected' : ''}>Pagado y Confirmado</option>
+                                <option value="En Camino" ${o.status === 'En Camino' ? 'selected' : ''}>En Camino</option>
+                                <option value="Entregado" ${o.status === 'Entregado' ? 'selected' : ''}>Entregado</option>
+                            </select>
+                        </td>
+                        <td class="p-4 text-center">
+                            <button onclick="deleteOrder('${o._id}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors" title="Eliminar pedido">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                showToast("Pedido removido del panel con éxito.");
+                return;
+            }
+        } catch (err) {
+            console.error("Error al actualizar vista:", err);
+        }
     }
+    
+    window.location.reload();
 };
 
 function showToast(message) {

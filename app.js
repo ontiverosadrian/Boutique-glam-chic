@@ -62,7 +62,18 @@ async function fetchAndRenderBanner() {
             if (titleEl) titleEl.textContent = banner.title;
             if (subtitleEl) subtitleEl.textContent = banner.subtitle;
             if (badgeEl) badgeEl.textContent = banner.badge;
-            if (videoEl && banner.videoUrl) videoEl.src = banner.videoUrl;
+            
+            if (videoEl && banner.videoUrl) {
+                let finalVideoUrl = banner.videoUrl.trim();
+                if (finalVideoUrl.includes('youtube.com/watch?v=')) {
+                    const videoId = finalVideoUrl.split('watch?v=')[1]?.split('&')[0];
+                    if (videoId) finalVideoUrl = `https://www.youtube.com/embed/${videoId}`;
+                } else if (finalVideoUrl.includes('youtu.be/')) {
+                    const videoId = finalVideoUrl.split('youtu.be/')[1]?.split('?')[0];
+                    if (videoId) finalVideoUrl = `https://www.youtube.com/embed/${videoId}`;
+                }
+                videoEl.src = finalVideoUrl;
+            }
         }
     } catch (e) {
         console.log('Error al cargar banner publicitario:', e);
@@ -690,7 +701,7 @@ function checkUserSession() {
         } else {
             if (catalogView) catalogView.classList.remove('hidden');
             if (adminDashboard) adminDashboard.classList.add('hidden');
-            if (clientNavTabs) clientNavTabs.classList.remove('hidden');
+            if (clientNavTabs) clientNavTabs.classList.add('hidden');
         }
     } else {
         container.innerHTML = `<button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium flex items-center space-x-2"><i class="fas fa-user"></i> <span>Iniciar Sesión</span></button>`;

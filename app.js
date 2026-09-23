@@ -701,7 +701,7 @@ function checkUserSession() {
         } else {
             if (catalogView) catalogView.classList.remove('hidden');
             if (adminDashboard) adminDashboard.classList.add('hidden');
-            if (clientNavTabs) clientNavTabs.classList.add('hidden');
+            if (clientNavTabs) clientNavTabs.classList.remove('hidden');
         }
     } else {
         container.innerHTML = `<button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium flex items-center space-x-2"><i class="fas fa-user"></i> <span>Iniciar Sesión</span></button>`;
@@ -989,19 +989,67 @@ function setupChatbot() {
     const addMsg = (text, sender) => {
         const div = document.createElement('div');
         div.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
-        div.innerHTML = `<div class="p-3 rounded-2xl max-w-[80%] text-xs ${sender === 'user' ? 'bg-pink-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border'}">${text}</div>`;
+        div.innerHTML = `<div class="p-3 rounded-2xl max-w-[85%] text-xs shadow-sm ${sender === 'user' ? 'bg-pink-600 text-white rounded-br-none' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-100 dark:border-gray-700 rounded-bl-none'}">${text}</div>`;
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+    };
+
+    const generateBotResponse = (userQuery) => {
+        const query = userQuery.toLowerCase();
+        const products = getStoredProducts();
+
+        if (query.includes('hola') || query.includes('buenos dias') || query.includes('buenas tardes') || query.includes('saludos')) {
+            return '¡Hola! 💖 Bienvenida a **Boutique Glam Chic**. ¿Qué prenda o accesorio estás buscando hoy?';
+        }
+
+        if (query.includes('catalogo') || query.includes('ropa') || query.includes('vestido') || query.includes('tienen') || query.includes('productos')) {
+            if (products.length === 0) return 'Actualmente estamos actualizando nuestro inventario, ¡pero tenemos novedades exclusivas muy pronto!';
+            const list = products.slice(0, 4).map(p => `• **${p.name}** ($${p.price.toFixed(2)})`).join('<br>');
+            return `¡Claro! Aquí tienes algunas de nuestras prendas destacadas:<br>${list}<br><br>Puedes explorar todo el catálogo arriba en la tienda. ✨`;
+        }
+
+        const matchedProduct = products.find(p => query.includes(p.name.toLowerCase()) || query.includes(p.category.toLowerCase()));
+        if (matchedProduct) {
+            return `¡Sí tenemos disponible! **${matchedProduct.name}** de la categoría *${matchedProduct.category}* tiene un precio de **$${matchedProduct.price.toFixed(2)}**. ¿Te gustaría añadirlo al pedido? 🛍️`;
+        }
+
+        if (query.includes('pago') || query.includes('tarjeta') || query.includes('efectivo') || query.includes('pagar')) {
+            return '💳 Aceptamos **Tarjetas de crédito/débito** de forma segura y **Efectivo / Contra Entrega** al recibir tu pedido.';
+        }
+
+        if (query.includes('envio') || query.includes('entrega') || query.includes('cuanto tarda')) {
+            return '🚚 Realizamos entregas locales y envíos rápidos. Puedes ingresar tu dirección al momento de finalizar tu pedido en el carrito.';
+        }
+
+        if (query.includes('contacto') || query.includes('whatsapp') || query.includes('atencion') || query.includes('humano')) {
+            return '📞 Claro que sí, puedes contactarnos directamente con nuestro equipo de atención al cliente o escribirnos al teléfono **+52 899 543 2261**. 💖';
+        }
+
+        return 'Entiendo perfectamente. Para ayudarte mejor con tu estilo y compras en Boutique Glam Chic, puedes revisar nuestro catálogo o escribirnos si buscas alguna prenda en especial. 👗✨';
     };
 
     const handleSend = () => {
         const text = inputEl.value.trim();
         if (!text) return;
+        
         addMsg(text, 'user');
         inputEl.value = '';
+
+        const typingId = 'typing-' + Date.now();
+        const typingDiv = document.createElement('div');
+        typingDiv.id = typingId;
+        typingDiv.className = 'flex justify-start';
+        typingDiv.innerHTML = `<div class="p-3 rounded-2xl bg-white dark:bg-gray-800 text-gray-400 text-xs border border-gray-100 dark:border-gray-700 italic">GlamBot está escribiendo...</div>`;
+        messagesEl.appendChild(typingDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
         setTimeout(() => {
-            addMsg('¡Gracias por tu mensaje! Con gusto te asistimos con tu compra en Boutique Glam Chic. 💖', 'bot');
-        }, 1000);
+            const typingElement = document.getElementById(typingId);
+            if (typingElement) typingElement.remove();
+            
+            const botReply = generateBotResponse(text);
+            addMsg(botReply, 'bot');
+        }, 800);
     };
 
     sendBtn.onclick = handleSend;

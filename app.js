@@ -6,6 +6,9 @@ let isRegistering = false;
 let salesChartInstance = null;
 let selectedProductForDetail = null;
 let currentSelectedSize = 'Unitalla';
+let isGameRunning = false;
+let gameScore = 0;
+let obstacleInterval = null;
 
 async function initializeApp() {
     if (!localStorage.getItem('glam_saved_order')) {
@@ -1059,10 +1062,89 @@ function setupChatbot() {
 function monitorConnection() {
     const banner = document.getElementById('offline-banner');
     if (!banner) return;
-    const updateStatus = () => banner.classList.toggle('hidden', navigator.onLine);
+
+    const updateStatus = () => {
+        const isOffline = !navigator.onLine;
+        banner.classList.toggle('hidden', !isOffline);
+        if (!isOffline && isGameRunning) {
+            stopOfflineGame();
+        }
+    };
+
     window.addEventListener('online', updateStatus);
     window.addEventListener('offline', updateStatus);
     updateStatus();
+
+    window.addEventListener('keydown', (e) => {
+        if ((e.code === 'Space' || e.code === 'ArrowUp') && isGameRunning) {
+            e.preventDefault();
+            triggerJump();
+        }
+    });
+}
+
+window.startOfflineGame = function() {
+    const gameContainer = document.getElementById('offline-game-container');
+    const overlay = document.getElementById('game-start-overlay');
+    if (!gameContainer) return;
+
+    gameContainer.classList.remove('hidden');
+    if (overlay) overlay.classList.add('hidden');
+
+    if (isGameRunning) return;
+    isGameRunning = true;
+    gameScore = 0;
+
+    const dino = document.getElementById('game-dino');
+    const obstacle = document.getElementById('game-obstacle');
+    const scoreEl = document.getElementById('game-score');
+
+    let obstaclePos = 350;
+    let isJumping = false;
+
+    obstacleInterval = setInterval(() => {
+        if (!navigator.onLine === false) {
+            stopOfflineGame();
+            return;
+        }
+
+        obstaclePos -= 6;
+        if (obstaclePos < -20) {
+            obstaclePos = 380;
+            gameScore += 10;
+            if (scoreEl) scoreEl.textContent = `Puntos: ${gameScore}`;
+        }
+
+        if (obstacle) {
+            obstacle.style.right = `${380 - obstaclePos}px`;
+        }
+
+        if (obstaclePos > 310 && obstaclePos < 350 && !isJumping) {
+            alert(`¡Juego terminado! Puntuación final: ${gameScore} 🎮`);
+            stopOfflineGame();
+        }
+    }, 30);
+
+    window.triggerJump = function() {
+        if (isJumping || !isGameRunning) return;
+        isJumping = true;
+        if (dino) {
+            dino.style.bottom = '55px';
+            setTimeout(() => {
+                dino.style.bottom = '8px';
+                isJumping = false;
+            }, 320);
+        }
+    };
+};
+
+function stopOfflineGame() {
+    isGameRunning = false;
+    clearInterval(obstacleInterval);
+    const gameContainer = document.getElementById('offline-game-container');
+    const overlay = document.getElementById('game-start-overlay');
+    if (gameContainer) gameContainer.classList.add('hidden');
+    if (overlay) overlay.classList.remove('hidden');
 }
 
 window.switchClientView = function(view) {

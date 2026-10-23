@@ -666,6 +666,83 @@ window.deleteOrder = async function(orderId) {
     }
 };
 
+// NUEVAS FUNCIONES DE GESTIÓN DE USUARIOS PARA ADMIN
+window.loadAdminUsers = async function() {
+    const tableBody = document.getElementById('admin-users-table');
+    if (!tableBody) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/admin/users`);
+        if (response.ok) {
+            const users = await response.json();
+            
+            if (!Array.isArray(users) || users.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400 text-xs">No hay usuarios registrados.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = users.map(u => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td class="p-4 font-semibold text-xs text-gray-800 dark:text-gray-200">${u.name || 'Sin nombre'}</td>
+                    <td class="p-4 text-xs text-gray-500">${u.email}</td>
+                    <td class="p-4 text-xs">
+                        <select onchange="updateUserRole('${u._id}', this.value)" class="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-semibold border border-gray-200 dark:border-gray-700">
+                            <option value="client" ${u.role === 'client' ? 'selected' : ''}>Cliente</option>
+                            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+                        </select>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="deleteAdminUser('${u._id}')" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-200 transition-colors" title="Eliminar usuario">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) {
+        console.log('Error al cargar usuarios:', e);
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-400 text-xs">Error al conectar con el servidor.</td></tr>`;
+    }
+};
+
+window.updateUserRole = async function(userId, newRole) {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/users/${userId}/role`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: newRole })
+        });
+
+        if (response.ok) {
+            showToast("¡Rol de usuario actualizado con éxito!");
+            loadAdminUsers();
+        } else {
+            alert("No se pudo actualizar el rol.");
+        }
+    } catch (e) {
+        alert("Error de conexión con el servidor.");
+    }
+};
+
+window.deleteAdminUser = async function(userId) {
+    if (!confirm('¿Estás seguro de eliminar este usuario del sistema?')) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showToast("¡Usuario eliminado correctamente!");
+            loadAdminUsers();
+        } else {
+            alert("No se pudo eliminar el usuario.");
+        }
+    } catch (e) {
+        alert("Error de conexión con el servidor.");
+    }
+};
+
 function showToast(message) {
     let toast = document.getElementById('toast-notification');
     if (!toast) {
@@ -729,6 +806,7 @@ function checkUserSession() {
             if (adminDashboard) adminDashboard.classList.remove('hidden');
             if (clientNavTabs) clientNavTabs.classList.add('hidden');
             loadAdminDashboardData();
+            loadAdminUsers(); // Cargar lista de usuarios al entrar como admin
         } else {
             if (catalogView) catalogView.classList.remove('hidden');
             if (adminDashboard) adminDashboard.classList.add('hidden');

@@ -46,19 +46,16 @@
             </div>
             
             <div class="flex items-center space-x-4">
-                <!-- Botón Tema Oscuro/Claro -->
                 <button id="theme-toggle" class="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition-colors">
                     <i id="theme-icon" class="fas fa-moon text-gray-700 dark:text-yellow-400"></i>
                 </button>
                 
-                <!-- Botón Carrito / Pedido -->
                 <button id="open-order-btn" class="relative bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-2">
                     <i class="fas fa-shopping-bag"></i>
                     <span class="hidden sm:inline">Mi Pedido</span>
                     <span id="order-badge" class="hidden absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow">0</span>
                 </button>
 
-                <!-- Contenedor de Autenticación / Sesión -->
                 <div id="auth-action-container"></div>
             </div>
         </div>
@@ -67,10 +64,8 @@
     <!-- Contenido Principal -->
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
 
-        <!-- VISTA DE CLIENTE (Catálogo y Banner) -->
+        <!-- VISTA DE CLIENTE -->
         <div id="catalog-view" class="space-y-8">
-            
-            <!-- Banner Publicitario / Spot -->
             <section class="bg-gradient-to-r from-pink-500 to-rose-600 rounded-3xl p-6 sm:p-10 text-white shadow-lg overflow-hidden relative grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                 <div class="space-y-4 z-10">
                     <span id="display-badge" class="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold tracking-wide">✨ Promoción Exclusiva</span>
@@ -87,13 +82,11 @@
                 </div>
             </section>
 
-            <!-- Pestañas de Cliente (Catálogo e Historial) -->
             <div id="client-nav-tabs" class="flex space-x-3 border-b border-gray-200 dark:border-gray-700 pb-4">
                 <button id="tab-catalog-btn" onclick="switchClientView('catalog')" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm">Catálogo</button>
                 <button id="tab-history-btn" onclick="switchClientView('history')" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700">Mis Pedidos</button>
             </div>
 
-            <!-- Sección de Productos -->
             <section id="products-section" class="space-y-6">
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <div class="relative w-full sm:w-80">
@@ -109,7 +102,6 @@
                     </select>
                 </div>
 
-                <!-- Grid de Productos -->
                 <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
                 <div id="no-results" class="hidden text-center py-16 text-gray-400">
                     <i class="fas fa-box-open text-4xl mb-2"></i>
@@ -117,14 +109,13 @@
                 </div>
             </section>
 
-            <!-- Sección Historial de Pedidos de Cliente -->
             <section id="client-history-section" class="hidden space-y-4">
                 <h2 class="text-lg font-bold">Historial de Tus Pedidos</h2>
                 <div id="client-orders-container" class="space-y-3"></div>
             </section>
         </div>
 
-        <!-- VISTA DE ADMINISTRADOR (Dashboard completo) -->
+        <!-- VISTA DE ADMINISTRADOR -->
         <div id="admin-dashboard" class="hidden space-y-8">
             <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
                 <div>
@@ -134,7 +125,6 @@
                 <span class="px-3 py-1.5 bg-pink-100 text-pink-700 rounded-xl text-xs font-bold">Admin Mode</span>
             </div>
 
-            <!-- KPIs -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <p class="text-xs font-semibold text-gray-400 uppercase">Ventas Totales</p>
@@ -150,13 +140,11 @@
                 </div>
             </div>
 
-            <!-- Gráfica de Ventas -->
             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 class="font-bold text-base mb-4">Comportamiento de Ventas</h3>
                 <div class="h-64"><canvas id="salesChart"></canvas></div>
             </div>
 
-            <!-- Configurar Banner Publicitario -->
             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 class="font-bold text-base mb-4">Actualizar Spot Publicitario</h3>
                 <form id="banner-admin-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -168,7 +156,6 @@
                 </form>
             </div>
 
-            <!-- Agregar Producto al Inventario -->
             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 class="font-bold text-base mb-4">Añadir Nuevo Producto</h3>
                 <form id="add-product-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -190,7 +177,6 @@
                 </form>
             </div>
 
-            <!-- Tabla de Inventario de Productos -->
             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 class="font-bold text-base mb-4">Inventario Actual</h3>
                 <div class="overflow-x-auto">
@@ -209,7 +195,6 @@
                 </div>
             </div>
 
-            <!-- Tabla de Gestión de Pedidos -->
             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                 <h3 class="font-bold text-base mb-4">Gestión de Pedidos de Clientes</h3>
                 <div class="overflow-x-auto">
@@ -230,14 +215,22 @@
                 </div>
             </div>
 
-            <!-- SECCIÓN NUEVA: Gestión de Usuarios -->
-            <div id="admin-users-section" class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                <div class="flex justify-between items-center mb-4">
+            <!-- SECCIÓN DE GESTIÓN Y REGISTRO DE USUARIOS -->
+            <div id="admin-users-section" class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+                <div class="flex justify-between items-center">
                     <h3 class="font-bold text-base text-gray-800 dark:text-gray-100">Gestión de Usuarios</h3>
                     <button onclick="loadAdminUsers()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors">
                         <i class="fas fa-sync-alt mr-1"></i> Actualizar Lista
                     </button>
                 </div>
+
+                <form id="admin-add-user-form" class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <input type="text" id="adm-user-name" placeholder="Nombre completo" class="p-2.5 bg-white dark:bg-gray-800 rounded-lg text-xs border border-gray-200 dark:border-gray-700" required>
+                    <input type="email" id="adm-user-email" placeholder="Correo electrónico" class="p-2.5 bg-white dark:bg-gray-800 rounded-lg text-xs border border-gray-200 dark:border-gray-700" required>
+                    <input type="password" id="adm-user-pass" placeholder="Contraseña" class="p-2.5 bg-white dark:bg-gray-800 rounded-lg text-xs border border-gray-200 dark:border-gray-700" required>
+                    <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-semibold py-2.5 shadow-sm">Registrar Usuario</button>
+                </form>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -248,16 +241,16 @@
                                 <th class="p-4 font-semibold text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody id="admin-users-table" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                        <tbody id="admin-users-table" class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tr><td colspan="4" class="p-4 text-center text-gray-400 text-xs">Cargando usuarios...</td></tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
-
         </div>
-
     </main>
 
-    <!-- MODAL DE DETALLE DE PRODUCTO -->
+    <!-- MODAL DETALLE DE PRODUCTO -->
     <div id="product-detail-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-6 shadow-xl relative grid grid-cols-1 sm:grid-cols-2 gap-6 border border-gray-100 dark:border-gray-700">
             <button onclick="closeProductDetailModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
@@ -284,7 +277,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CARRITO / PEDIDO -->
+    <!-- MODAL PEDIDO -->
     <div id="order-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-lg w-full p-6 shadow-xl border border-gray-100 dark:border-gray-700 flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center mb-4">
@@ -309,7 +302,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE PAGO / TRANSFERENCIA SPEI -->
+    <!-- MODAL PAGO SPEI -->
     <div id="card-payment-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-6 shadow-xl border border-gray-100 dark:border-gray-700">
             <h3 class="font-bold text-lg mb-2">Pago por Transferencia SPEI</h3>
@@ -330,7 +323,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE EDITAR PRODUCTO -->
+    <!-- MODAL EDITAR PRODUCTO -->
     <div id="edit-product-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-6 shadow-xl border border-gray-100 dark:border-gray-700">
             <div class="flex justify-between items-center mb-4">
@@ -358,7 +351,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE AUTENTICACIÓN (LOGIN / REGISTRO) -->
+    <!-- MODAL AUTH -->
     <div id="auth-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-sm w-full p-6 shadow-xl border border-gray-100 dark:border-gray-700 relative">
             <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
@@ -377,7 +370,7 @@
         </div>
     </div>
 
-    <!-- CHATBOT FLOTANTE INTELIGENTE -->
+    <!-- CHATBOT -->
     <div class="fixed bottom-5 right-5 z-40">
         <button id="chatbot-toggle-btn" class="bg-pink-600 hover:bg-pink-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl transition-transform hover:scale-105">
             <i class="fas fa-comment-dots"></i>
@@ -404,7 +397,6 @@
         </div>
     </div>
 
-    <!-- Script Principal -->
     <script src="app.js"></script>
 </body>
 </html>

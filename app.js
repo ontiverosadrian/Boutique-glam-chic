@@ -30,6 +30,7 @@ async function initializeApp() {
     setupChatbot();
     monitorConnection();
     startAdminOrderNotifications();
+    setupAdminUserForm();
 }
 
 async function fetchAndRenderProducts() {
@@ -666,7 +667,7 @@ window.deleteOrder = async function(orderId) {
     }
 };
 
-// NUEVAS FUNCIONES DE GESTIÓN DE USUARIOS PARA ADMIN
+// GESTIÓN DE USUARIOS
 window.loadAdminUsers = async function() {
     const tableBody = document.getElementById('admin-users-table');
     if (!tableBody) return;
@@ -701,9 +702,44 @@ window.loadAdminUsers = async function() {
         }
     } catch (e) {
         console.log('Error al cargar usuarios:', e);
-        tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-400 text-xs">Error al conectar con el servidor.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-400 text-xs">Error al conectar con el servidor para listar usuarios.</td></tr>`;
     }
 };
+
+function setupAdminUserForm() {
+    const form = document.getElementById('admin-add-user-form');
+    if (!form) return;
+
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    newForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('adm-user-name').value.trim();
+        const email = document.getElementById('adm-user-email').value.trim().toLowerCase();
+        const password = document.getElementById('adm-user-pass').value.trim();
+        const role = email.includes('admin') ? 'admin' : 'client';
+
+        try {
+            const response = await fetch(`${API_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, role })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                showToast('¡Usuario registrado con éxito!');
+                newForm.reset();
+                loadAdminUsers();
+            } else {
+                alert(data.error || 'Error al registrar el usuario.');
+            }
+        } catch (err) {
+            alert('Error de conexión con el servidor.');
+        }
+    });
+}
 
 window.updateUserRole = async function(userId, newRole) {
     try {
@@ -806,11 +842,11 @@ function checkUserSession() {
             if (adminDashboard) adminDashboard.classList.remove('hidden');
             if (clientNavTabs) clientNavTabs.classList.add('hidden');
             loadAdminDashboardData();
-            loadAdminUsers(); // Cargar lista de usuarios al entrar como admin
+            loadAdminUsers();
         } else {
             if (catalogView) catalogView.classList.remove('hidden');
             if (adminDashboard) adminDashboard.classList.add('hidden');
-            if (clientNavTabs) clientNavTabs.classList.remove('hidden');
+            if (clientNavTabs) clientNavTabs.classList.add('hidden');
         }
     } else {
         container.innerHTML = `<button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium flex items-center space-x-2"><i class="fas fa-user"></i> <span>Iniciar Sesión</span></button>`;

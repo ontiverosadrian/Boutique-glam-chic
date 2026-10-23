@@ -302,10 +302,10 @@
         </div>
     </div>
 
-    <!-- MODAL PAGO SPEI -->
+    <!-- MODAL PAGO SPEI CON BOTÓN DE WHATSAPP -->
     <div id="card-payment-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-6 shadow-xl border border-gray-100 dark:border-gray-700">
-            <h3 class="font-bold text-lg mb-2">Pago por Transferencia SPEI</h3>
+            <h3 class="font-bold text-lg mb-2 text-gray-800 dark:text-gray-100">Pago por Transferencia SPEI</h3>
             <p class="text-xs text-gray-500 mb-4">Realiza tu transferencia por el monto exacto a nuestra cuenta de Mercado Pago:</p>
             <div class="bg-pink-50 dark:bg-gray-900 p-4 rounded-2xl mb-4 space-y-2 text-xs border border-pink-100 dark:border-gray-700">
                 <p><strong>Banco:</strong> Mercado Pago / STP</p>
@@ -314,8 +314,13 @@
                 <p class="text-pink-600 font-bold mt-2">Total a pagar: <span id="payment-total-display">$0.00</span></p>
             </div>
             <form id="card-payment-form" class="space-y-4">
-                <p class="text-[11px] text-gray-400">Una vez realizada la transferencia, haz clic en confirmar para registrar tu pedido.</p>
-                <div class="flex space-x-3">
+                <p class="text-[11px] text-gray-400">1. Confirma tu pedido aquí y 2. Envíanos tu comprobante por WhatsApp.</p>
+                
+                <a href="https://wa.me/528995432261?text=Hola,%20acabo%20de%20realizar%20mi%20transferencia%20para%20Boutique%20Glam%20Chic.%20Adjunto%20mi%20comprobante:" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-semibold shadow-sm flex items-center justify-center space-x-2">
+                    <i class="fab fa-whatsapp text-sm"></i> <span>Enviar Comprobante por WhatsApp</span>
+                </a>
+
+                <div class="flex space-x-3 pt-2">
                     <button type="button" onclick="closeCardModal()" class="w-1/2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-xl text-xs font-semibold">Cancelar</button>
                     <button type="submit" class="w-1/2 bg-pink-600 hover:bg-pink-700 text-white py-2.5 rounded-xl text-xs font-semibold shadow-sm">Ya pagué, Confirmar</button>
                 </div>
@@ -386,7 +391,7 @@
             <div id="chatbot-messages" class="flex-grow p-4 overflow-y-auto space-y-3 bg-gray-50 dark:bg-gray-900 text-xs">
                 <div class="flex justify-start">
                     <div class="p-3 rounded-2xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-100 dark:border-gray-700 rounded-bl-none shadow-sm">
-                        ¡Hola! Bienvenida a **Boutique Glam Chic**. ¿Qué prenda o accesorio estás buscando hoy?
+                        ¡Hola! 💖 Bienvenida a **Boutique Glam Chic**. ¿Qué prenda o accesorio estás buscando hoy?
                     </div>
                 </div>
             </div>

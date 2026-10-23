@@ -9,6 +9,7 @@ let currentSelectedSize = 'Unitalla';
 let isGameRunning = false;
 let gameScore = 0;
 let obstacleInterval = null;
+let lastKnownOrderCount = 0;
 
 async function initializeApp() {
     if (!localStorage.getItem('glam_saved_order')) {
@@ -28,6 +29,7 @@ async function initializeApp() {
     setupAuthForm();
     setupChatbot();
     monitorConnection();
+    startAdminOrderNotifications();
 }
 
 async function fetchAndRenderProducts() {
@@ -382,10 +384,6 @@ function renderOrderModalContent() {
     totalContainer.textContent = `$${grandTotal.toFixed(2)}`;
 }
 
-window.confirmCashOrder = async function() {
-    await processOrderWithPaymentMethod('Efectivo / Contra Entrega');
-}
-
 window.openCardModal = function() {
     const currentOrder = getSavedOrder();
     if (currentOrder.length === 0) {
@@ -396,9 +394,13 @@ window.openCardModal = function() {
     const address = document.getElementById('shipping-address').value.trim();
     const phone = document.getElementById('client-phone').value.trim();
     if (!address || !phone) {
-        alert('Por favor ingresa tu dirección de envío y teléfono antes de proceder al pago con tarjeta.');
+        alert('Por favor ingresa tu dirección de envío y teléfono antes de proceder al pago.');
         return;
     }
+
+    const grandTotal = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const totalDisplay = document.getElementById('payment-total-display');
+    if (totalDisplay) totalDisplay.textContent = `$${grandTotal.toFixed(2)}`;
 
     document.getElementById('order-modal').classList.add('hidden');
     document.getElementById('card-payment-modal').classList.remove('hidden');
@@ -412,16 +414,14 @@ function setupCardPaymentForm() {
     const form = document.getElementById('card-payment-form');
     if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const number = document.getElementById('card-number').value.trim();
-        if (number.length < 15) {
-            alert('Número de tarjeta inválido.');
-            return;
-        }
-        await processOrderWithPaymentMethod(`Tarjeta (Terminada en ${number.slice(-4)})`);
+        await processOrderWithPaymentMethod('Transferencia / Mercado Pago (SPEI)');
         closeCardModal();
-        form.reset();
+        newForm.reset();
     });
 }
 
@@ -439,7 +439,7 @@ async function processOrderWithPaymentMethod(method) {
         paymentMethod: method,
         items: currentOrder,
         total: currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        status: method.includes('Tarjeta') ? 'Pagado y Confirmado' : 'Pendiente'
+        status: 'Pendiente'
     };
 
     try {
@@ -677,6 +677,34 @@ function showToast(message) {
     toast.textContent = message;
     toast.style.opacity = '1';
     setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
+function startAdminOrderNotifications() {
+    setInterval(async () => {
+        const session = JSON.parse(localStorage.getItem('glam_user_session'));
+        if (!session || session.role !== 'admin') return;
+
+        try {
+            const response = await fetch(`${API_URL}/api/admin/orders`);
+            if (response.ok) {
+                const orders = await response.json();
+                if (Array.isArray(orders)) {
+                    if (lastKnownOrderCount === 0) {
+                        lastKnownOrderCount = orders.length;
+                        return;
+                    }
+
+                    if (orders.length > lastKnownOrderCount) {
+                        showToast("🚨 ¡Nuevo pedido recibido de un cliente!");
+                        loadAdminDashboardData();
+                    }
+                    lastKnownOrderCount = orders.length;
+                }
+            }
+        } catch (e) {
+            console.log("Comprobando nuevos pedidos en segundo plano...");
+        }
+    }, 20000);
 }
 
 function checkUserSession() {

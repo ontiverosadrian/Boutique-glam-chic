@@ -99,6 +99,98 @@ function saveOrderToStorage(orderItems) {
     updateOrderBadge();
 }
 
+// --- GESTIÓN DE LISTA DE DESEOS (WISHLIST) ---
+function getWishlist() {
+    return JSON.parse(localStorage.getItem('glam_wishlist')) || [];
+}
+
+function saveWishlist(wishlist) {
+    localStorage.setItem('glam_wishlist', JSON.stringify(wishlist));
+}
+
+window.toggleWishlist = function(productId) {
+    const products = getStoredProducts();
+    const product = products.find(p => (p._id === productId || p.id == productId));
+    if (!product) return;
+
+    let wishlist = getWishlist();
+    const index = wishlist.findIndex(item => (item._id === productId || item.id == productId));
+
+    if (index > -1) {
+        wishlist.splice(index, 1);
+        showToast('Prenda eliminada de tu lista de deseos');
+    } else {
+        wishlist.push(product);
+        showToast('¡Prenda agregada a tu lista de deseos! 💖');
+    }
+
+    saveWishlist(wishlist);
+    renderCatalog(getStoredProducts());
+    const wishlistSection = document.getElementById('client-wishlist-section');
+    if (wishlistSection && !wishlistSection.classList.contains('hidden')) {
+        renderWishlist();
+    }
+};
+
+function renderWishlist() {
+    const grid = document.getElementById('wishlist-product-grid');
+    const noResults = document.getElementById('no-wishlist');
+    if (!grid) return;
+
+    const wishlist = getWishlist();
+    grid.innerHTML = '';
+
+    if (wishlist.length === 0) {
+        if (noResults) noResults.classList.remove('hidden');
+        return;
+    } else {
+        if (noResults) noResults.classList.add('hidden');
+    }
+
+    wishlist.forEach(product => {
+        const prodId = product._id || product.id;
+        const isAvailable = product.available !== false;
+
+        const card = document.createElement('div');
+        card.className = `bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col group ${!isAvailable ? 'opacity-75' : 'cursor-pointer'}`;
+        
+        if (isAvailable) {
+            card.onclick = (e) => {
+                if (e.target.closest('.quick-add-btn') || e.target.closest('.wishlist-btn')) return;
+                openProductDetail(prodId);
+            };
+        }
+
+        card.innerHTML = `
+            <div class="h-64 overflow-hidden bg-gray-100 dark:bg-gray-900 relative">
+                <button onclick="toggleWishlist('${prodId}')" class="wishlist-btn absolute top-3 left-3 bg-white/90 dark:bg-gray-900/95 backdrop-blur-sm p-2 rounded-full shadow-sm hover:scale-110 transition-transform z-10 text-pink-600">
+                    <i class="fas fa-heart"></i>
+                </button>
+                <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${!isAvailable ? 'grayscale' : ''}" loading="lazy">
+                <span class="absolute top-3 right-3 bg-white/90 dark:bg-gray-900/95 backdrop-blur-sm text-pink-700 dark:text-pink-400 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                    ${product.category}
+                </span>
+                ${!isAvailable ? '<span class="absolute top-3 left-14 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Agotado</span>' : ''}
+            </div>
+            <div class="p-5 flex flex-col flex-grow">
+                <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 mb-1 group-hover:text-pink-600 transition-colors">${product.name}</h3>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4 flex-grow line-clamp-2">${product.description || 'Sin descripción detallada.'}</p>
+                <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
+                    <span class="text-xl font-extrabold text-pink-600 dark:text-pink-400">$${product.price.toFixed(2)}</span>
+                    ${isAvailable ? `
+                        <button onclick="addToOrder('${prodId}')" class="quick-add-btn bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center space-x-1.5">
+                            <i class="fas fa-plus"></i> <span>Añadir</span>
+                        </button>
+                    ` : `
+                        <span class="text-xs font-bold text-red-500 uppercase tracking-wider px-3 py-1.5 bg-red-50 dark:bg-red-900/30 rounded-xl">No disponible</span>
+                    `}
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
 function renderCatalog(itemsToRender) {
     const grid = document.getElementById('product-grid');
     const noResults = document.getElementById('no-results');
@@ -112,27 +204,33 @@ function renderCatalog(itemsToRender) {
         if (noResults) noResults.classList.add('hidden');
     }
 
+    const wishlist = getWishlist();
+
     itemsToRender.forEach(product => {
         const prodId = product._id || product.id || Math.random().toString();
         const isAvailable = product.available !== false;
+        const isWishlisted = wishlist.some(item => (item._id === prodId || item.id == prodId));
 
         const card = document.createElement('div');
         card.className = `bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col group ${!isAvailable ? 'opacity-75' : 'cursor-pointer'}`;
         
         if (isAvailable) {
             card.onclick = (e) => {
-                if (e.target.closest('.quick-add-btn')) return;
+                if (e.target.closest('.quick-add-btn') || e.target.closest('.wishlist-btn')) return;
                 openProductDetail(prodId);
             };
         }
 
         card.innerHTML = `
             <div class="h-64 overflow-hidden bg-gray-100 dark:bg-gray-900 relative">
+                <button onclick="toggleWishlist('${prodId}')" class="wishlist-btn absolute top-3 left-3 bg-white/90 dark:bg-gray-900/95 backdrop-blur-sm p-2 rounded-full shadow-sm hover:scale-110 transition-transform z-10 ${isWishlisted ? 'text-pink-600' : 'text-gray-400'}">
+                    <i class="${isWishlisted ? 'fas fa-heart' : 'far fa-heart'}"></i>
+                </button>
                 <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${!isAvailable ? 'grayscale' : ''}" loading="lazy">
                 <span class="absolute top-3 right-3 bg-white/90 dark:bg-gray-900/95 backdrop-blur-sm text-pink-700 dark:text-pink-400 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                     ${product.category}
                 </span>
-                ${!isAvailable ? '<span class="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Agotado</span>' : ''}
+                ${!isAvailable ? '<span class="absolute top-3 left-14 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Agotado</span>' : ''}
             </div>
             <div class="p-5 flex flex-col flex-grow">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 mb-1 group-hover:text-pink-600 transition-colors">${product.name}</h3>
@@ -846,7 +944,7 @@ function checkUserSession() {
         } else {
             if (catalogView) catalogView.classList.remove('hidden');
             if (adminDashboard) adminDashboard.classList.add('hidden');
-            if (clientNavTabs) clientNavTabs.classList.add('hidden');
+            if (clientNavTabs) clientNavTabs.classList.remove('hidden');
         }
     } else {
         container.innerHTML = `<button id="open-auth-btn" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 px-3.5 py-2 rounded-xl text-sm font-medium flex items-center space-x-2"><i class="fas fa-user"></i> <span>Iniciar Sesión</span></button>`;
@@ -1292,20 +1390,36 @@ function stopOfflineGame() {
 window.switchClientView = function(view) {
     const catalogView = document.getElementById('products-section');
     const historyView = document.getElementById('client-history-section');
+    const wishlistView = document.getElementById('client-wishlist-section');
+    
     const catBtn = document.getElementById('tab-catalog-btn');
     const histBtn = document.getElementById('tab-history-btn');
+    const wishBtn = document.getElementById('tab-wishlist-btn');
+
+    if (!catalogView) return;
+
+    catalogView.classList.add('hidden');
+    if (historyView) historyView.classList.add('hidden');
+    if (wishlistView) wishlistView.classList.add('hidden');
+
+    const defaultBtnClass = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 transition-colors';
+    const activeBtnClass = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm transition-colors';
+
+    if (catBtn) catBtn.className = defaultBtnClass;
+    if (histBtn) histBtn.className = defaultBtnClass;
+    if (wishBtn) wishBtn.className = defaultBtnClass;
 
     if (view === 'catalog') {
         catalogView.classList.remove('hidden');
-        historyView.classList.add('hidden');
-        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
-        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
-    } else {
-        catalogView.classList.add('hidden');
-        historyView.classList.remove('hidden');
-        catBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200';
-        histBtn.className = 'px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm';
+        if (catBtn) catBtn.className = activeBtnClass;
+    } else if (view === 'history') {
+        if (historyView) historyView.classList.remove('hidden');
+        if (histBtn) histBtn.className = activeBtnClass;
         loadClientOrders();
+    } else if (view === 'wishlist') {
+        if (wishlistView) wishlistView.classList.remove('hidden');
+        if (wishBtn) wishBtn.className = activeBtnClass;
+        renderWishlist();
     }
 }
 

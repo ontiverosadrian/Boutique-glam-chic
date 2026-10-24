@@ -82,11 +82,14 @@
                 </div>
             </section>
 
-            <div id="client-nav-tabs" class="flex space-x-3 border-b border-gray-200 dark:border-gray-700 pb-4">
-                <button id="tab-catalog-btn" onclick="switchClientView('catalog')" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm">Catálogo</button>
-                <button id="tab-history-btn" onclick="switchClientView('history')" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700">Mis Pedidos</button>
+            <!-- Pestañas de Cliente -->
+            <div id="client-nav-tabs" class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-4">
+                <button id="tab-catalog-btn" onclick="switchClientView('catalog')" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-pink-600 text-white shadow-sm transition-colors">Catálogo</button>
+                <button id="tab-history-btn" onclick="switchClientView('history')" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 transition-colors">Mis Pedidos</button>
+                <button id="tab-wishlist-btn" onclick="switchClientView('wishlist')" class="px-5 py-2.5 rounded-xl font-medium text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 transition-colors">Lista de Deseos 💖</button>
             </div>
 
+            <!-- Sección de Productos -->
             <section id="products-section" class="space-y-6">
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <div class="relative w-full sm:w-80">
@@ -109,9 +112,20 @@
                 </div>
             </section>
 
+            <!-- Sección Historial de Pedidos -->
             <section id="client-history-section" class="hidden space-y-4">
                 <h2 class="text-lg font-bold">Historial de Tus Pedidos</h2>
                 <div id="client-orders-container" class="space-y-3"></div>
+            </section>
+
+            <!-- Sección Lista de Deseos -->
+            <section id="client-wishlist-section" class="hidden space-y-6">
+                <h2 class="text-lg font-bold">Tus Prendas Favoritas (Lista de Deseos)</h2>
+                <div id="wishlist-product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+                <div id="no-wishlist" class="hidden text-center py-16 text-gray-400">
+                    <i class="fas fa-heart text-4xl mb-2 text-pink-300"></i>
+                    <p class="text-sm">Aún no tienes prendas en tu lista de deseos.</p>
+                </div>
             </section>
         </div>
 

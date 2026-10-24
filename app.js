@@ -5,7 +5,6 @@ const API_URL = window.location.hostname === 'localhost' || window.location.host
 let isRegistering = false;
 let salesChartInstance = null;
 let selectedProductForDetail = null;
-let currentSelectedSize = 'Unitalla';
 let isGameRunning = false;
 let gameScore = 0;
 let obstacleInterval = null;
@@ -121,7 +120,7 @@ window.toggleWishlist = function(productId) {
         showToast('Prenda eliminada de tu lista de deseos');
     } else {
         wishlist.push(product);
-        showToast('¡Prenda agregada a tu lista de deseos! 💖');
+        showToast('Prenda agregada a tu lista de deseos');
     }
 
     saveWishlist(wishlist);
@@ -336,7 +335,7 @@ function setupEditProductForm() {
             });
 
             if (response.ok) {
-                showToast('¡Producto actualizado en el servidor!');
+                showToast('Producto actualizado en el servidor');
                 closeEditProductModal();
                 await fetchAndRenderProducts();
                 return;
@@ -357,7 +356,7 @@ function setupEditProductForm() {
         renderCatalog(localProducts);
         renderAdminProductsTable(localProducts);
         
-        showToast('¡Producto actualizado localmente con éxito!');
+        showToast('Producto actualizado localmente con éxito');
         closeEditProductModal();
     });
 }
@@ -368,7 +367,6 @@ window.openProductDetail = function(productId) {
     if (!product) return;
 
     selectedProductForDetail = product;
-    currentSelectedSize = 'Unitalla';
 
     document.getElementById('detail-img').src = product.image;
     document.getElementById('detail-category').textContent = product.category;
@@ -384,26 +382,20 @@ window.closeProductDetailModal = function() {
     selectedProductForDetail = null;
 };
 
-window.selectSize = function(size) { currentSelectedSize = size; };
-
 window.addCurrentProductToOrder = function() {
     if (!selectedProductForDetail) return;
-    const itemWithExtras = {
-        ...selectedProductForDetail,
-        name: `${selectedProductForDetail.name} (Talla: ${currentSelectedSize})`
-    };
-
+    
     let currentOrder = getSavedOrder();
-    const existingItem = currentOrder.find(item => item.name === itemWithExtras.name);
+    const existingItem = currentOrder.find(item => (item._id === selectedProductForDetail._id || item.id == selectedProductForDetail.id));
 
     if (existingItem) {
         existingItem.quantity += 1;
     } else {
-        currentOrder.push({ ...itemWithExtras, quantity: 1 });
+        currentOrder.push({ ...selectedProductForDetail, quantity: 1 });
     }
 
     saveOrderToStorage(currentOrder);
-    showToast(`¡"${selectedProductForDetail.name}" añadido al pedido!`);
+    showToast(`"${selectedProductForDetail.name}" añadido al pedido`);
     closeProductDetailModal();
 };
 
@@ -422,7 +414,7 @@ window.addToOrder = function(productId) {
     }
 
     saveOrderToStorage(currentOrder);
-    showToast(`¡"${product.name}" añadido al pedido!`);
+    showToast(`"${product.name}" añadido al pedido`);
 };
 
 function removeFromOrder(productId) {
@@ -690,7 +682,7 @@ window.downloadCatalogPDF = async function() {
         }
 
         doc.save("Catalogo_Boutique_Glam_Chic.pdf");
-        showToast("¡Catálogo en tarjetas PDF descargado con éxito!");
+        showToast("Catálogo en tarjetas PDF descargado con éxito");
 
     } catch (error) {
         console.error("Error al generar PDF:", error);
@@ -711,7 +703,7 @@ window.deleteOrder = async function(orderId) {
         
         if (response.ok) {
             serverDeleted = true;
-            showToast("¡Pedido eliminado del servidor correctamente!");
+            showToast("Pedido eliminado del servidor correctamente");
         }
     } catch (e) {
         console.log("Servidor en pausa o inalcanzable, aplicando borrado visual...");
@@ -827,7 +819,7 @@ function setupAdminUserForm() {
 
             const data = await response.json();
             if (response.ok) {
-                showToast('¡Usuario registrado con éxito!');
+                showToast('Usuario registrado con éxito');
                 newForm.reset();
                 loadAdminUsers();
             } else {
@@ -848,7 +840,7 @@ window.updateUserRole = async function(userId, newRole) {
         });
 
         if (response.ok) {
-            showToast("¡Rol de usuario actualizado con éxito!");
+            showToast("Rol de usuario actualizado con éxito");
             loadAdminUsers();
         } else {
             alert("No se pudo actualizar el rol.");
@@ -867,7 +859,7 @@ window.deleteAdminUser = async function(userId) {
         });
 
         if (response.ok) {
-            showToast("¡Usuario eliminado correctamente!");
+            showToast("Usuario eliminado correctamente");
             loadAdminUsers();
         } else {
             alert("No se pudo eliminar el usuario.");
@@ -906,7 +898,7 @@ function startAdminOrderNotifications() {
                     }
 
                     if (orders.length > lastKnownOrderCount) {
-                        showToast("🚨 ¡Nuevo pedido recibido de un cliente!");
+                        showToast("Nuevo pedido recibido de un cliente");
                         loadAdminDashboardData();
                     }
                     lastKnownOrderCount = orders.length;
@@ -1046,7 +1038,7 @@ function setupProductForm() {
             });
             if (response.ok) {
                 form.reset();
-                showToast('¡Producto guardado exitosamente!');
+                showToast('Producto guardado exitosamente');
                 await fetchAndRenderProducts();
             }
         } catch (err) {
@@ -1066,7 +1058,7 @@ function setupBannerAdminForm() {
         e.preventDefault();
         const payload = {
             title: document.getElementById('banner-title').value.trim(),
-            badge: document.getElementById('banner-badge').value.trim() || '✨ Promoción',
+            badge: document.getElementById('banner-badge').value.trim() || 'Promoción',
             subtitle: document.getElementById('banner-subtitle').value.trim(),
             videoUrl: document.getElementById('banner-video').value.trim()
         };
@@ -1080,7 +1072,7 @@ function setupBannerAdminForm() {
             });
 
             if (response.ok) {
-                showToast('¡Anuncio actualizado con éxito!');
+                showToast('Anuncio actualizado con éxito');
                 await fetchAndRenderBanner();
                 newForm.reset();
             } else {
@@ -1097,7 +1089,7 @@ window.deleteProduct = async function(productId) {
     try {
         await fetch(`${API_URL}/api/admin/products/${productId}`, { method: 'DELETE' });
         await fetchAndRenderProducts();
-        showToast('Producto eliminado.');
+        showToast('Producto eliminado');
     } catch (e) {
         alert('Error al eliminar.');
     }
@@ -1156,7 +1148,7 @@ window.updateOrderStatus = async function(orderId, newStatus) {
             body: JSON.stringify({ status: newStatus })
         });
         if (response.ok) {
-            showToast("¡Estatus del pedido actualizado!");
+            showToast("Estatus del pedido actualizado");
             loadAdminDashboardData();
         }
     } catch (e) {
@@ -1242,33 +1234,33 @@ function setupChatbot() {
         const products = getStoredProducts();
 
         if (query.includes('hola') || query.includes('buenos dias') || query.includes('buenas tardes') || query.includes('saludos')) {
-            return '¡Hola! 💖 Bienvenida a **Boutique Glam Chic**. ¿Qué prenda o accesorio estás buscando hoy?';
+            return '¡Hola! Bienvenida a <b>Boutique Glam Chic</b>. ¿Qué prenda o accesorio estás buscando hoy?';
         }
 
         if (query.includes('catalogo') || query.includes('ropa') || query.includes('vestido') || query.includes('tienen') || query.includes('productos')) {
             if (products.length === 0) return 'Actualmente estamos actualizando nuestro inventario, ¡pero tenemos novedades exclusivas muy pronto!';
-            const list = products.slice(0, 4).map(p => `• **${p.name}** ($${p.price.toFixed(2)})`).join('<br>');
-            return `¡Claro! Aquí tienes algunas de nuestras prendas destacadas:<br>${list}<br><br>Puedes explorar todo el catálogo arriba en la tienda. ✨`;
+            const list = products.slice(0, 4).map(p => `• <b>${p.name}</b> ($${p.price.toFixed(2)})`).join('<br>');
+            return `¡Claro! Aquí tienes algunas de nuestras prendas destacadas:<br>${list}<br><br>Puedes explorar todo el catálogo arriba en la tienda.`;
         }
 
         const matchedProduct = products.find(p => query.includes(p.name.toLowerCase()) || query.includes(p.category.toLowerCase()));
         if (matchedProduct) {
-            return `¡Sí tenemos disponible! **${matchedProduct.name}** de la categoría *${matchedProduct.category}* tiene un precio de **$${matchedProduct.price.toFixed(2)}**. ¿Te gustaría añadirlo al pedido? 🛍️`;
+            return `¡Sí tenemos disponible! <b>${matchedProduct.name}</b> de la categoría <i>${matchedProduct.category}</i> tiene un precio de <b>$${matchedProduct.price.toFixed(2)}</b>. ¿Te gustaría añadirlo al pedido?`;
         }
 
         if (query.includes('pago') || query.includes('tarjeta') || query.includes('efectivo') || query.includes('pagar')) {
-            return '💳 Aceptamos **Tarjetas de crédito/débito** de forma segura y **Efectivo / Contra Entrega** al recibir tu pedido.';
+            return 'Aceptamos tarjetas de crédito y débito de forma segura y efectivo o contra entrega al recibir tu pedido.';
         }
 
         if (query.includes('envio') || query.includes('entrega') || query.includes('cuanto tarda')) {
-            return '🚚 Realizamos entregas locales y envíos rápidos. Puedes ingresar tu dirección al momento de finalizar tu pedido en el carrito.';
+            return 'Realizamos entregas locales y envíos rápidos. Puedes ingresar tu dirección al momento de finalizar tu pedido en el carrito.';
         }
 
         if (query.includes('contacto') || query.includes('whatsapp') || query.includes('atencion') || query.includes('humano')) {
-            return '📞 Claro que sí, puedes contactarnos directamente con nuestro equipo de atención al cliente o escribirnos al teléfono **+52 899 543 2261**. 💖';
+            return 'Claro que sí, puedes contactarnos directamente con nuestro equipo de atención al cliente o escribirnos al teléfono <b>+52 899 543 2261</b>.';
         }
 
-        return 'Entiendo perfectamente. Para ayudarte mejor con tu estilo y compras en Boutique Glam Chic, puedes revisar nuestro catálogo o escribirnos si buscas alguna prenda en especial. 👗✨';
+        return 'Entiendo perfectamente. Para ayudarte mejor con tu estilo y compras en Boutique Glam Chic, puedes revisar nuestro catálogo o escribirnos si buscas alguna prenda en especial.';
     };
 
     const handleSend = () => {
@@ -1360,7 +1352,7 @@ window.startOfflineGame = function() {
         }
 
         if (obstaclePos > 310 && obstaclePos < 350 && !isJumping) {
-            alert(`¡Juego terminado! Puntuación final: ${gameScore} 🎮`);
+            alert(`Juego terminado. Puntuación final: ${gameScore}`);
             stopOfflineGame();
         }
     }, 30);
@@ -1443,16 +1435,20 @@ async function loadClientOrders() {
             return;
         }
 
+        window._clientOrdersCache = orders;
+
         container.innerHTML = orders.map(o => `
-            <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs">
-                <div>
-                    <span class="font-bold text-pink-600">Pedido #${o._id ? o._id.slice(-6) : 'S/N'}</span>
-                    <p class="text-gray-500 mt-1">${o.items ? o.items.map(i => `${i.name} (x${i.quantity})`).join(', ') : ''}</p>
-                    <span class="text-[10px] text-gray-400">Envío a: ${o.shippingAddress || 'N/A'} | Pago: ${o.paymentMethod || 'Efectivo'}</span>
+            <div class="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs shadow-sm">
+                <div class="space-y-1">
+                    <span class="font-bold text-pink-600 text-sm">Pedido #${o._id ? o._id.slice(-6) : 'S/N'}</span>
+                    <p class="text-gray-500 dark:text-gray-400">Fecha: ${new Date(o.createdAt).toLocaleDateString()}</p>
+                    <span class="inline-block px-2.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">${o.status || 'Pendiente'}</span>
                 </div>
-                <div class="text-right">
-                    <span class="font-extrabold text-sm">$${o.total ? o.total.toFixed(2) : '0.00'}</span>
-                    <span class="block px-2.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 mt-1">${o.status || 'Pendiente'}</span>
+                <div class="text-right space-y-2">
+                    <span class="font-extrabold text-sm block">$${o.total ? o.total.toFixed(2) : '0.00'}</span>
+                    <button onclick="openClientOrderDetail('${o._id}')" class="px-3 py-1.5 bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400 hover:bg-pink-100 font-semibold rounded-xl transition-colors">
+                        <i class="fas fa-eye mr-1"></i> Ver Detalle
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -1460,5 +1456,50 @@ async function loadClientOrders() {
         container.innerHTML = `<p class="text-xs text-gray-400">Tus pedidos recientes se mostrarán aquí cuando el servidor responda.</p>`;
     }
 }
+
+window.openClientOrderDetail = function(orderId) {
+    const orders = window._clientOrdersCache || [];
+    const order = orders.find(o => o._id === orderId);
+    if (!order) return;
+
+    const contentContainer = document.getElementById('client-order-detail-content');
+    if (!contentContainer) return;
+
+    const itemsHtml = order.items.map(i => `
+        <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+            <div class="flex items-center space-x-3">
+                <img src="${i.image}" alt="${i.name}" class="w-12 h-12 object-cover rounded-xl border border-gray-100 dark:border-gray-700">
+                <div>
+                    <h4 class="font-semibold text-gray-800 dark:text-gray-200">${i.name}</h4>
+                    <p class="text-gray-500 dark:text-gray-400">Cantidad: ${i.quantity} x $${i.price.toFixed(2)}</p>
+                </div>
+            </div>
+            <span class="font-bold text-pink-600 text-sm">$${(i.price * i.quantity).toFixed(2)}</span>
+        </div>
+    `).join('');
+
+    contentContainer.innerHTML = `
+        <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl space-y-1.5 border border-gray-100 dark:border-gray-700">
+            <p><strong>Estatus:</strong> <span class="text-pink-600 font-bold">${order.status}</span></p>
+            <p><strong>Método de Pago:</strong> ${order.paymentMethod || 'Efectivo / Transferencia'}</p>
+            <p><strong>Dirección de Envío:</strong> ${order.shippingAddress || 'N/A'}</p>
+            <p><strong>Teléfono:</strong> ${order.clientPhone || 'N/A'}</p>
+        </div>
+        <h4 class="font-bold text-sm text-gray-800 dark:text-gray-100 mt-4 mb-2">Artículos del Pedido:</h4>
+        <div class="space-y-1 divide-y divide-gray-100 dark:divide-gray-700">
+            ${itemsHtml}
+        </div>
+        <div class="pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm font-extrabold">
+            <span>Total Pagado:</span>
+            <span class="text-pink-600 text-base">$${order.total.toFixed(2)}</span>
+        </div>
+    `;
+
+    document.getElementById('client-order-detail-modal').classList.remove('hidden');
+};
+
+window.closeClientOrderDetailModal = function() {
+    document.getElementById('client-order-detail-modal').classList.add('hidden');
+};
 
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });

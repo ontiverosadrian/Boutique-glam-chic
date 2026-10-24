@@ -264,7 +264,7 @@
         </div>
     </main>
 
-    <!-- MODAL DETALLE DE PRODUCTO -->
+    <!-- MODAL DETALLE DE PRODUCTO (SIN TALLAS) -->
     <div id="product-detail-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-6 shadow-xl relative grid grid-cols-1 sm:grid-cols-2 gap-6 border border-gray-100 dark:border-gray-700">
             <button onclick="closeProductDetailModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
@@ -279,12 +279,6 @@
                     <p id="detail-desc" class="text-xs text-gray-500 mt-3">Descripción de la prenda.</p>
                 </div>
                 <div class="space-y-3">
-                    <div class="flex space-x-2">
-                        <button onclick="selectSize('Chica')" class="px-3 py-1.5 border rounded-xl text-xs font-bold hover:border-pink-600">CH</button>
-                        <button onclick="selectSize('Mediana')" class="px-3 py-1.5 border rounded-xl text-xs font-bold hover:border-pink-600">M</button>
-                        <button onclick="selectSize('Grande')" class="px-3 py-1.5 border rounded-xl text-xs font-bold hover:border-pink-600">G</button>
-                        <button onclick="selectSize('Unitalla')" class="px-3 py-1.5 border rounded-xl text-xs font-bold hover:border-pink-600">Unitalla</button>
-                    </div>
                     <button onclick="addCurrentProductToOrder()" class="w-full bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-xl text-xs font-semibold shadow-sm">Añadir al Pedido</button>
                 </div>
             </div>

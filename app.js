@@ -6,9 +6,17 @@ let isRegistering = false;
 let salesChartInstance = null;
 let selectedProductForDetail = null;
 let isGameRunning = false;
-let gameScore = 0;
-let obstacleInterval = null;
+let flippedCards = [];
+let matchedPairs = 0;
+let lockBoard = false;
 let lastKnownOrderCount = 0;
+
+const clothingItems = [
+    { name: 'Vestido', icon: 'fa-dress' },
+    { name: 'Camisa', icon: 'fa-shirt' },
+    { name: 'Sombrero', icon: 'fa-hat-cowboy' },
+    { name: 'Calcetines', icon: 'fa-socks' }
+];
 
 async function initializeApp() {
     if (!localStorage.getItem('glam_saved_order')) {
@@ -1306,13 +1314,6 @@ function monitorConnection() {
     window.addEventListener('online', updateStatus);
     window.addEventListener('offline', updateStatus);
     updateStatus();
-
-    window.addEventListener('keydown', (e) => {
-        if ((e.code === 'Space' || e.code === 'ArrowUp') && isGameRunning) {
-            e.preventDefault();
-            triggerJump();
-        }
-    });
 }
 
 window.startOfflineGame = function() {
@@ -1323,56 +1324,81 @@ window.startOfflineGame = function() {
     gameContainer.classList.remove('hidden');
     if (overlay) overlay.classList.add('hidden');
 
-    if (isGameRunning) return;
     isGameRunning = true;
-    gameScore = 0;
+    matchedPairs = 0;
+    flippedCards = [];
+    lockBoard = false;
 
-    const dino = document.getElementById('game-dino');
-    const obstacle = document.getElementById('game-obstacle');
-    const scoreEl = document.getElementById('game-score');
+    updateMemoryScore();
 
-    let obstaclePos = 350;
-    let isJumping = false;
+    let deck = [...clothingItems, ...clothingItems];
+    deck.sort(() => Math.random() - 0.5);
 
-    obstacleInterval = setInterval(() => {
-        if (!navigator.onLine === false) {
-            stopOfflineGame();
-            return;
-        }
+    const grid = document.getElementById('memory-grid');
+    if (!grid) return;
 
-        obstaclePos -= 6;
-        if (obstaclePos < -20) {
-            obstaclePos = 380;
-            gameScore += 10;
-            if (scoreEl) scoreEl.textContent = `Puntos: ${gameScore}`;
-        }
-
-        if (obstacle) {
-            obstacle.style.right = `${380 - obstaclePos}px`;
-        }
-
-        if (obstaclePos > 310 && obstaclePos < 350 && !isJumping) {
-            alert(`Juego terminado. Puntuación final: ${gameScore}`);
-            stopOfflineGame();
-        }
-    }, 30);
-
-    window.triggerJump = function() {
-        if (isJumping || !isGameRunning) return;
-        isJumping = true;
-        if (dino) {
-            dino.style.bottom = '55px';
-            setTimeout(() => {
-                dino.style.bottom = '8px';
-                isJumping = false;
-            }, 320);
-        }
-    };
+    grid.innerHTML = deck.map((item, index) => `
+        <div onclick="flipMemoryCard(this, '${item.name}')" data-name="${item.name}" class="memory-card h-16 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center cursor-pointer transition-all text-white text-lg select-none border border-gray-600">
+            <i class="fas fa-question text-pink-400"></i>
+        </div>
+    `).join('');
 };
+
+window.flipMemoryCard = function(cardElement, name) {
+    if (!isGameRunning || lockBoard) return;
+    if (cardElement.classList.contains('matched') || cardElement.classList.contains('flipped')) return;
+
+    cardElement.classList.add('flipped');
+    
+    const found = clothingItems.find(i => i.name === name);
+    cardElement.innerHTML = `<i class="fas ${found ? found.icon : 'fa-star'} text-pink-400 text-xl"></i>`;
+
+    flippedCards.push({ element: cardElement, name: name });
+
+    if (flippedCards.length === 2) {
+        lockBoard = true;
+        setTimeout(checkMemoryMatch, 800);
+    }
+};
+
+function checkMemoryMatch() {
+    const [card1, card2] = flippedCards;
+
+    if (card1.name === card2.name) {
+        card1.element.classList.add('matched');
+        card2.element.classList.add('matched');
+        card1.element.classList.remove('flipped');
+        card2.element.classList.remove('flipped');
+        card1.element.style.background = '#be185d';
+        card2.element.style.background = '#be185d';
+        matchedPairs++;
+        updateMemoryScore();
+
+        if (matchedPairs === clothingItems.length) {
+            setTimeout(() => {
+                alert('¡Felicidades! Completaste el memorama de ropa.');
+            }, 300);
+        }
+    } else {
+        card1.element.classList.remove('flipped');
+        card2.element.classList.remove('flipped');
+        card1.element.innerHTML = `<i class="fas fa-question text-pink-400"></i>`;
+        card2.element.innerHTML = `<i class="fas fa-question text-pink-400"></i>`;
+    }
+
+    flippedCards = [];
+    lockBoard = false;
+}
+
+function updateMemoryScore() {
+    const scoreEl = document.getElementById('memory-score');
+    if (scoreEl) {
+        scoreEl.textContent = `Pares encontrados: ${matchedPairs} / ${clothingItems.length}`;
+    }
+}
 
 function stopOfflineGame() {
     isGameRunning = false;
-    clearInterval(obstacleInterval);
     const gameContainer = document.getElementById('offline-game-container');
     const overlay = document.getElementById('game-start-overlay');
     if (gameContainer) gameContainer.classList.add('hidden');
